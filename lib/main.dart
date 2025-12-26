@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:whispurr_hackathon/views/login_signup/login_page.dart';
 import 'package:whispurr_hackathon/views/login_signup/signup_page.dart';
+import 'package:whispurr_hackathon/views/mood-sleep/mood_sleep_page.dart';
+import 'package:whispurr_hackathon/views/navigation/navigation_route.dart';
 import 'package:whispurr_hackathon/views/notes/notes_page.dart';
 import 'theme.dart';
 
@@ -19,7 +21,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Whispurr',
       theme: createAppTheme(),
-      home: NotesPage(),
+      home: NavigateRoute(),
     );
   }
 }
