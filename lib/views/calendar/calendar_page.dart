@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:whispurr_hackathon/theme.dart';
+import '../../core/model/calendar_model.dart';
 import 'create_task.dart';
+import '../../core/widgets/task_card.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -15,14 +17,39 @@ class _CalendarPageState extends State<CalendarPage> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
-  // Mock data: Day -> Mood Color
   final Map<DateTime, Color> _moodHistory = {
-    DateTime(2025, 12, 1): Colors.blue.shade200,
-    DateTime(2025, 12, 2): Colors.yellow.shade200,
-    DateTime(2025, 12, 3): Colors.green.shade300,
+    DateTime(2025, 12, 1): Colors.pink.shade100,
+    DateTime(2025, 12, 2): Colors.blue.shade200,
+    DateTime(2025, 12, 3): Colors.yellow.shade200,
+    DateTime(2025, 12, 4): Colors.green.shade300,
     DateTime(2025, 12, 11): Colors.red.shade200,
     DateTime(2025, 12, 16): Colors.green.shade200,
   };
+
+  final Map<DateTime, List<CalendarTask>> _events = {
+    DateTime(2025, 12, 30): [
+      CalendarTask(title: "Go for a walk", time: "Today", color: Color(0xFFA8C69F)),
+    ],
+    DateTime(2025, 12, 31): [
+      CalendarTask(title: "Go for a walk", time: "Tomorrow", color: Colors.grey.shade200),
+    ],
+    DateTime(2025, 12, 20): [
+      CalendarTask(title: "Go for a walk", time: "December 20, 2025", color: Colors.grey.shade200),
+    ],
+  };
+
+  List<CalendarTask> _selectedEvents = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDay = _focusedDay;
+    _selectedEvents = _getEventsForDay(_selectedDay!);
+  }
+
+  List<CalendarTask> _getEventsForDay(DateTime day) {
+    return _events[DateTime(day.year, day.month, day.day)] ?? [];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,21 +57,25 @@ class _CalendarPageState extends State<CalendarPage> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.symmetric(horizontal: 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              SizedBox(height: 20),
               _buildCustomCalendar(),
               const SizedBox(height: 24),
-              _buildMoodInputArea(),
+              // _buildMoodInputArea(),
               const SizedBox(height: 32),
               _buildUpcomingSection(),
+              const SizedBox(height: 100),
             ],
           ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFFA8C69F), // Sage green from design
+        elevation: 0,
+        shape: CircleBorder(),
+        backgroundColor: const Color(0xFFA8C69F),
         onPressed: () => _showCreateTaskSheet(context),
         child: const Icon(Icons.add, color: Colors.white, size: 30),
       ),
@@ -57,59 +88,73 @@ class _CalendarPageState extends State<CalendarPage> {
       lastDay: DateTime.utc(2030, 12, 31),
       focusedDay: _focusedDay,
       calendarFormat: _calendarFormat,
-      headerStyle: HeaderStyle(
+      selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+      eventLoader: _getEventsForDay, // Required for event markers
+      headerStyle: const HeaderStyle(
         formatButtonVisible: false,
-        titleCentered: false,
-        titleTextStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        titleCentered: true,
+        titleTextStyle: TextStyle(fontSize: 20),
         leftChevronIcon: Icon(Icons.chevron_left, color: Colors.black),
         rightChevronIcon: Icon(Icons.chevron_right, color: Colors.black),
+        headerPadding: EdgeInsets.only(bottom: 20),
       ),
-      daysOfWeekStyle: DaysOfWeekStyle(
-        weekdayStyle: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
-        weekendStyle: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+      daysOfWeekStyle: const DaysOfWeekStyle(
+        weekdayStyle: TextStyle(color: Colors.grey),
+        weekendStyle: TextStyle(color: Colors.grey),
       ),
       calendarBuilders: CalendarBuilders(
-        defaultBuilder: (context, day, focusedDay) => _buildMoodCircle(day, Colors.transparent),
-        outsideBuilder: (context, day, focusedDay) => _buildMoodCircle(day, Colors.transparent, opacity: 0.3),
-        todayBuilder: (context, day, focusedDay) => _buildMoodCircle(day, Colors.grey.shade200, isToday: true),
-        // This is where the magic happens: Color dates based on mood history
+        // Default day look (White circles)
+        defaultBuilder: (context, day, focusedDay) => _buildDayItem(day, Colors.white),
+        // Days from other months
+        outsideBuilder: (context, day, focusedDay) => _buildDayItem(day, Colors.white, opacity: 0.3),
+        // Today's highlight
+        todayBuilder: (context, day, focusedDay) => _buildDayItem(day, Colors.grey.shade200, isToday: true),
+        // Main marker builder to display Mood Colors and Event Dots
         markerBuilder: (context, day, events) {
           final normalizedDate = DateTime(day.year, day.month, day.day);
-          if (_moodHistory.containsKey(normalizedDate)) {
-            return _buildMoodCircle(day, _moodHistory[normalizedDate]!);
-          }
-          return null;
+
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              // 1. Draw the Mood Circle if data exists
+              if (_moodHistory.containsKey(normalizedDate))
+                _buildDayItem(day, _moodHistory[normalizedDate]!),
+
+              // 2. Draw the Event Dot if tasks exist
+              if (events.isNotEmpty)
+                Positioned(
+                  bottom: 12,
+                  child: Container(
+                    width: 4,
+                    height: 4,
+                    decoration: const BoxDecoration(
+                      color: Colors.black,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
+          );
         },
       ),
       onDaySelected: (selectedDay, focusedDay) {
         setState(() {
           _selectedDay = selectedDay;
           _focusedDay = focusedDay;
+          _selectedEvents = _getEventsForDay(selectedDay);
         });
       },
     );
   }
 
-  Widget _buildMoodCircle(DateTime day, Color color, {double opacity = 1.0, bool isToday = false}) {
+  Widget _buildDayItem(DateTime day, Color color, {double opacity = 1.0, bool isToday = false}) {
     return Container(
       margin: const EdgeInsets.all(6.0),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        // If the color passed is transparent (no mood), use White instead
-        color: color == Colors.transparent ? Colors.white : color.withOpacity(opacity),
+        color: color.withOpacity(opacity),
         shape: BoxShape.circle,
-        border: Border.all(
-          color: Colors.black.withOpacity(0.1), // Slightly darker border for visibility
-          width: 1,
-        ),
-        boxShadow: [
-          if (color != Colors.transparent) // Optional: add a tiny shadow to mood dates
-            BoxShadow(
-              color: color.withOpacity(0.2),
-              blurRadius: 4,
-              spreadRadius: 1,
-            ),
-        ],
+        border: Border.all(color: Colors.black.withOpacity(0.1)),
       ),
       child: Text(
         '${day.day}',
@@ -120,60 +165,50 @@ class _CalendarPageState extends State<CalendarPage> {
       ),
     );
   }
-  }
 
-  Widget _buildMoodInputArea() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
-      decoration: BoxDecoration(
-        color: const Color(0xFFA8C69F).withOpacity(0.6), // Matching your sage box
-        borderRadius: BorderRadius.circular(28),
-      ),
-      child: const Text(
-        "Share your thoughts..",
-        style: TextStyle(color: Colors.white, fontSize: 16),
-      ),
-    );
-  }
+  // Widget _buildMoodInputArea() {
+  //   return Container(
+  //     width: double.infinity,
+  //     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+  //     decoration: BoxDecoration(
+  //       color: const Color(0xFFA8C69F).withOpacity(0.6),
+  //       borderRadius: BorderRadius.circular(28),
+  //     ),
+  //     child: const Text(
+  //       "Share your thoughts..",
+  //       style: TextStyle(color: Colors.white, fontSize: 16),
+  //     ),
+  //   );
+  // }
 
   Widget _buildUpcomingSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Upcoming", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+        const Text(
+          "Upcoming",
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 16),
-        _buildTaskItem("Go for a walk", "Today", const Color(0xFFA8C69F)),
-        _buildTaskItem("Go for a walk", "Tomorrow", Colors.grey.shade200),
-        _buildTaskItem("Go for a walk", "December 20, 2025", Colors.grey.shade200),
+        if (_selectedEvents.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Text("No tasks for this day.", style: TextStyle(color: Colors.grey)),
+          )
+        else
+          ..._selectedEvents.map((task) => TaskCard(
+            title: task.title,
+            subtitle: task.time,
+            dotColor: task.color,
+            isCompleted: task.isCompleted,
+            onToggle: (val) {
+              setState(() {
+                // Toggle the boolean value
+                task.isCompleted = !task.isCompleted;
+              });
+            },
+          )).toList()
       ],
-    );
-  }
-
-  Widget _buildTaskItem(String title, String subtitle, Color dotColor) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(radius: 12, backgroundColor: dotColor),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-              Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            ],
-          ),
-          const Spacer(),
-          const Icon(Icons.chevron_right, color: Colors.grey),
-        ],
-      ),
     );
   }
 
@@ -184,4 +219,5 @@ class _CalendarPageState extends State<CalendarPage> {
       backgroundColor: Colors.transparent,
       builder: (context) => const CreateTask(),
     );
+  }
 }

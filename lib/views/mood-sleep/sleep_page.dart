@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:whispurr_hackathon/theme.dart';
-import '../../utils/time_picker_utils.dart';
+
+import '../../core/utils/time_picker_utils.dart';
 import 'time_picker_button.dart';
 
 
