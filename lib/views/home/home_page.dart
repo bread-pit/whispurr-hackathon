@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:whispurr_hackathon/core/widgets/note_card.dart';
 import 'package:whispurr_hackathon/views/home/summary_card.dart';
-import 'package:whispurr_hackathon/views/notes/notes_page.dart';
-import '../../core/model/calendar_model.dart'; // Ensure this matches your project structure
+import 'package:table_calendar/table_calendar.dart';
+import '../../core/model/calendar_model.dart';
 import '../../core/widgets/task_card.dart';
 import '../../theme.dart';
 
+// TODO:
+// 1. connect mood color
+// 2. calendar colors
+// 3. connect tasks and notes to database
 
 class HomePage extends StatefulWidget {
   final Function(int) onTabChange;
@@ -17,6 +21,17 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  // Calendar State
+  CalendarFormat _calendarFormat = CalendarFormat.week;
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDay = _focusedDay;
+  }
+
   // Mock data for the current day's tasks
   // In a real scenario, you'd filter your global events list by DateTime.now()
   List<CalendarTask> _selectedEvents = [
@@ -64,7 +79,47 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. Calendar placeholder (Weekly View)
+
+                Text(
+                  "Hello, Angelica!",
+                  style: context.textTheme.displayLarge,
+                ),
+
+                SizedBox(height: 25),
+
+                // CALENDAR
+                TableCalendar(
+                  firstDay: DateTime.utc(2025, 1, 1),
+                  lastDay: DateTime.utc(2030, 12, 31),
+                  focusedDay: _focusedDay,
+                  calendarFormat: _calendarFormat, // Fixed to week
+                  headerVisible: false,
+                  selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                  onDaySelected: (selectedDay, focusedDay) {
+                    setState(() {
+                      _selectedDay = selectedDay;
+                      _focusedDay = focusedDay;
+                    });
+                    // Filter tasks based on selectedDay here
+                  },
+                  calendarStyle: CalendarStyle(
+                    todayDecoration: BoxDecoration(
+                      color: AppColors.black.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    selectedDecoration: const BoxDecoration(
+                      color: AppColors.black,
+                      shape: BoxShape.circle,
+                    ),
+                    defaultTextStyle: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  headerStyle: const HeaderStyle(
+                    formatButtonVisible: false,
+                    titleCentered: true,
+                    titleTextStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+
                 SizedBox(height: 20),
 
                 // 2. Summary Board
@@ -134,7 +189,6 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ],
                 ),
-
 
                 NoteCard(
                   title: "Hello",

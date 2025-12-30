@@ -5,6 +5,10 @@ import '../../core/model/calendar_model.dart';
 import 'create_task.dart';
 import '../../core/widgets/task_card.dart';
 
+// TODO:
+// 1. fix colors
+// 2. allow TaskCard selection (see task_card.dart)
+
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
 

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:whispurr_hackathon/theme.dart';
 
+// TODO:
+// 1. allow card selection -> create notes
+
 class NoteCard extends StatelessWidget {
   final String title;
   final String content;
