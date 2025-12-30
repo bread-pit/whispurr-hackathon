@@ -3,6 +3,10 @@ import 'package:whispurr_hackathon/theme.dart';
 import 'package:whispurr_hackathon/views/mood-sleep/sleep_page.dart';
 import 'package:whispurr_hackathon/views/mood-sleep/mood_page.dart';
 
+// TODO:
+// 1. Connect to database
+// 2. weekly & monthly data for sleep
+
 class MoodSleepPage extends StatefulWidget {
   const MoodSleepPage({super.key});
 

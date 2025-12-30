@@ -30,13 +30,13 @@ class _SignupPageState extends State<SignupPage> {
               margin: const EdgeInsets.all(32.0),
               padding: const EdgeInsets.all(32.0),
               width: double.infinity,
-              height: 700,
+              height: 500,
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: AppColors.black,
-                  width: 1,
+                  color: AppColors.black.withValues(alpha: 0.5),
+                  width: 0.5,
                 ),
               ),
               child: Column(
@@ -50,9 +50,6 @@ class _SignupPageState extends State<SignupPage> {
 
                   SizedBox(height: 20),
 
-                  Text('Sign Up', style: context.textTheme.displayLarge),
-
-                  SizedBox(height: 10),
 
                   Text(
                       'Clarity starts here.',
@@ -61,29 +58,21 @@ class _SignupPageState extends State<SignupPage> {
 
                   SizedBox(height: 30),
 
-                  // Email textfield
-                  TextfieldCard(
-                      iconPath: 'assets/icons/email.svg',
-                      hintText: 'Email'
-                  ),
-
                   // Username textfield
                   TextfieldCard(
                       iconPath: 'assets/icons/user-filled.svg',
-                      hintText: 'Username'
+                      hintText: 'Name'
                   ),
 
                   // Password textfield
                   TextfieldCard(
                     iconPath: 'assets/icons/lock-filled.svg',
-                    hintText: 'Password',
-                    isPassword: true,
+                    hintText: 'Age',
                   ),
 
                   TextfieldCard(
-                    iconPath: 'assets/icons/lock-filled.svg',
-                    hintText: 'Confirm Password',
-                    isPassword: true,
+                    iconPath: 'assets/icons/calendar.svg',
+                    hintText: 'Birthday',
                   ),
 
                   SizedBox(height: 30),
@@ -101,38 +90,13 @@ class _SignupPageState extends State<SignupPage> {
                           ),
                         ),
                         child: Text(
-                          'Sign Up',
+                          'Start your journey',
                           style: context.textTheme.bodyMedium?.copyWith(
                             color: Colors.white,
                           ),
                         )
                     ),
                   ),
-
-                  // Signup Button
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        "Already have an account?",
-                        style: context.textTheme.bodySmall,
-                      ),
-
-                      TextButton(
-                          onPressed: () {},
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.all(5),
-                            minimumSize: const Size(0, 0),
-                          ),
-                          child: Text(
-                            'Sign in',
-                            style: context.textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.w600
-                            ),
-                          )
-                      ),
-                    ],
-                  )
 
                 ],
               ),

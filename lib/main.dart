@@ -21,7 +21,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Whispurr',
       theme: createAppTheme(),
-      home: NavigateRoute(),
+      home: SignupPage(),
     );
   }
 }
