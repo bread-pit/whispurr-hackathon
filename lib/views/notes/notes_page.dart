@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:whispurr_hackathon/theme.dart';
-import 'package:whispurr_hackathon/views/notes/note_card.dart';
+import 'package:whispurr_hackathon/core/widgets/note_card.dart';
 import 'package:whispurr_hackathon/views/notes/note_take.dart';
 
 class NotesPage extends StatefulWidget {

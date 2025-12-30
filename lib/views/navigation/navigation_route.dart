@@ -17,19 +17,19 @@ class NavigateRoute extends StatefulWidget {
 class _NavigateRouteState extends State<NavigateRoute> {
   int _currentIndex = 0;
 
-  final List<Widget> _pages = [
-    const HomePage(),
-    const CalendarPage(),
-    const NotesPage(),
-    const AccountPage(),
-    const MoodSleepPage(),
-  ];
-
   void _onTabTapped(int index) {
     setState(() {
       _currentIndex = index;
     });
   }
+
+  List<Widget> get _pages => [
+    HomePage(onTabChange: _onTabTapped), // 3. Pass the function here
+    const CalendarPage(),
+    const NotesPage(),
+    const AccountPage(),
+    const MoodSleepPage(),
+  ];
 
   @override
   Widget build(BuildContext context) {

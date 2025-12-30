@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 // TODO:
 // 1. allow card selection -> create task
+// 2. mood color
 
 class TaskCard extends StatelessWidget {
   final String title;
