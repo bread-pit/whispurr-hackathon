@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:whispurr_hackathon/core/services/automations_service.dart';
+import 'package:whispurr_hackathon/core/services/supabase_service.dart';
 
 class CreateTask extends StatefulWidget {
   const CreateTask({super.key});
@@ -9,8 +11,68 @@ class CreateTask extends StatefulWidget {
 }
 
 class _CreateTaskState extends State<CreateTask> {
+  final _titleController = TextEditingController();
+  final _notesController = TextEditingController();
+  final _automationsService = AutomationsService();
+  bool _isSaving = false;
+  
   DateTime startDate = DateTime.now();
   DateTime endDate = DateTime.now();
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveTask() async {
+    if (_titleController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a title')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      final user = SupabaseService.client.auth.currentUser;
+      if (user != null) {
+        await _automationsService.createAutomation(
+          userId: user.id,
+          title: _titleController.text,
+          status: 'pending',
+          payload: {
+            'start_date': startDate.toIso8601String(),
+            'end_date': endDate.toIso8601String(),
+            'repeat': selectedRepeat,
+            'notes': _notesController.text,
+          },
+        );
+        if (mounted) {
+          Navigator.pop(context);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please sign in to create tasks')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error saving task: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save task: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
 
   // State for the repeat selection
   String selectedRepeat = "Don't repeat";
@@ -106,6 +168,7 @@ class _CreateTaskState extends State<CreateTask> {
               child: Column(
                 children: [
                   TextField(
+                    controller: _titleController,
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.normal,
@@ -159,6 +222,7 @@ class _CreateTaskState extends State<CreateTask> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextField(
+                      controller: _notesController,
                       maxLines: 3,
                       decoration: const InputDecoration(
                         hintText: "Notes",
@@ -189,8 +253,17 @@ class _CreateTaskState extends State<CreateTask> {
                   Container(width: 1, height: 24, color: Colors.white24),
                   Expanded(
                     child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text("Save", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      onPressed: _isSaving ? null : _saveTask,
+                      child: _isSaving
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Text("Save", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],

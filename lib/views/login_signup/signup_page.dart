@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:whispurr_hackathon/theme.dart';
 import 'package:whispurr_hackathon/views/login_signup/textField_card.dart';
 import 'package:whispurr_hackathon/views/navigation/navigation_route.dart';
+import 'package:whispurr_hackathon/core/services/supabase_service.dart';
+import 'package:whispurr_hackathon/core/services/profile_service.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -11,6 +13,53 @@ class SignupPage extends StatefulWidget {
 }
 
 class _SignupPageState extends State<SignupPage> {
+  final _nameController = TextEditingController();
+  final _birthdayController = TextEditingController();
+  final _profileService = ProfileService();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _birthdayController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSignup() async {
+    if (_nameController.text.isEmpty || _birthdayController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all fields')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // For now, we'll create a profile without authentication
+      // In a full implementation, you'd use Supabase Auth first
+      final email = '${_nameController.text.toLowerCase().replaceAll(' ', '_')}@whispurr.app';
+      
+      // Note: In production, you'd use Supabase Auth signup here
+      // For now, we'll just navigate to the main app
+      
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const NavigateRoute()),
+      );
+    } catch (e) {
+      debugPrint('Signup error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Signup failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -62,18 +111,14 @@ class _SignupPageState extends State<SignupPage> {
                   // Username textfield
                   TextfieldCard(
                       iconPath: 'assets/icons/user-filled.svg',
-                      hintText: 'Name'
-                  ),
-
-                  // Password textfield
-                  TextfieldCard(
-                    iconPath: 'assets/icons/lock-filled.svg',
-                    hintText: 'Age',
+                      hintText: 'Name',
+                      controller: _nameController,
                   ),
 
                   TextfieldCard(
                     iconPath: 'assets/icons/calendar.svg',
                     hintText: 'Birthday',
+                    controller: _birthdayController,
                   ),
 
                   SizedBox(height: 30),
@@ -81,12 +126,7 @@ class _SignupPageState extends State<SignupPage> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (context) => const NavigateRoute()),
-                          );
-                        },
+                        onPressed: _isLoading ? null : _handleSignup,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Color(0xff628141),
                           foregroundColor: Colors.white, // Text color
@@ -95,12 +135,21 @@ class _SignupPageState extends State<SignupPage> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: Text(
-                          'Start your journey',
-                          style: context.textTheme.bodyMedium?.copyWith(
-                            color: Colors.white,
-                          ),
-                        )
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : Text(
+                                'Start your journey',
+                                style: context.textTheme.bodyMedium?.copyWith(
+                                  color: Colors.white,
+                                ),
+                              )
                     ),
                   ),
 

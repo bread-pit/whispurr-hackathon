@@ -1,8 +1,70 @@
 import 'package:flutter/material.dart';
+import 'package:whispurr_hackathon/core/services/logs_service.dart';
+import 'package:whispurr_hackathon/core/services/supabase_service.dart';
+import 'package:intl/intl.dart';
 import '../../theme.dart';
 
-class NoteTake extends StatelessWidget {
+class NoteTake extends StatefulWidget {
   const NoteTake({super.key});
+
+  @override
+  State<NoteTake> createState() => _NoteTakeState();
+}
+
+class _NoteTakeState extends State<NoteTake> {
+  final _titleController = TextEditingController();
+  final _contentController = TextEditingController();
+  final _logsService = LogsService();
+  bool _isSaving = false;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _contentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveNote() async {
+    if (_contentController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please write something first')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      final user = SupabaseService.client.auth.currentUser;
+      if (user != null) {
+        await _logsService.createLog(
+          userId: user.id,
+          mood: _titleController.text.isNotEmpty ? _titleController.text : 'Note',
+          content: _contentController.text,
+        );
+        if (mounted) {
+          Navigator.pop(context);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please sign in to save notes')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error saving note: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save note: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,13 +80,20 @@ class NoteTake extends StatelessWidget {
         ),
         actions: [
           // Optional: Add a checkmark or 'Save' button
-          TextButton(onPressed: () {},
-              child: Text(
-                'Save',
-                style: TextStyle(
-                  color: context.mood.happy
-                ),
-              )
+          TextButton(
+            onPressed: _isSaving ? null : _saveNote,
+            child: _isSaving
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(
+                    'Save',
+                    style: TextStyle(
+                      color: context.mood.happy
+                    ),
+                  )
           )
         ],
       ),
@@ -36,6 +105,7 @@ class NoteTake extends StatelessWidget {
 
             // 1. Title Input
             TextField(
+              controller: _titleController,
               style: context.textTheme.displaySmall?.copyWith(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -54,7 +124,7 @@ class NoteTake extends StatelessWidget {
             Align(
               alignment: Alignment.topLeft,
               child: Text(
-                "August 12, 2003",
+                DateFormat('MMMM dd, yyyy').format(DateTime.now()),
                 style: context.textTheme.bodySmall?.copyWith(
                   color: AppColors.black.withOpacity(0.6),
                 ),
@@ -71,6 +141,7 @@ class NoteTake extends StatelessWidget {
 
             // 3. Note Content Input
             TextField(
+              controller: _contentController,
               style: context.textTheme.bodyLarge,
               decoration: InputDecoration(
                 hintText: 'Aa...',

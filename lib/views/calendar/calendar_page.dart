@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:whispurr_hackathon/theme.dart';
+import 'package:whispurr_hackathon/core/services/automations_service.dart';
+import 'package:whispurr_hackathon/core/services/supabase_service.dart';
 import '../../core/model/calendar_model.dart';
 import 'create_task.dart';
 import '../../core/widgets/task_card.dart';
@@ -17,6 +19,9 @@ class CalendarPage extends StatefulWidget {
 }
 
 class _CalendarPageState extends State<CalendarPage> {
+  final _automationsService = AutomationsService();
+  List<Map<String, dynamic>> _automations = [];
+  bool _isLoading = true;
   CalendarFormat _calendarFormat = CalendarFormat.month;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
@@ -49,6 +54,26 @@ class _CalendarPageState extends State<CalendarPage> {
     super.initState();
     _selectedDay = _focusedDay;
     _selectedEvents = _getEventsForDay(_selectedDay!);
+    _loadAutomations();
+  }
+
+  Future<void> _loadAutomations() async {
+    setState(() => _isLoading = true);
+    try {
+      final user = SupabaseService.client.auth.currentUser;
+      if (user != null) {
+        final automations = await _automationsService.getAutomations(user.id);
+        setState(() {
+          _automations = automations;
+          _isLoading = false;
+        });
+      } else {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      debugPrint('Error loading automations: $e');
+      setState(() => _isLoading = false);
+    }
   }
 
   List<CalendarTask> _getEventsForDay(DateTime day) {
@@ -80,7 +105,10 @@ class _CalendarPageState extends State<CalendarPage> {
         elevation: 0,
         shape: CircleBorder(),
         backgroundColor: const Color(0xFFA8C69F),
-        onPressed: () => _showCreateTaskSheet(context),
+        onPressed: () async {
+          await _showCreateTaskSheet(context);
+          _loadAutomations(); // Reload automations after creating a task
+        },
         child: const Icon(Icons.add, color: Colors.white, size: 30),
       ),
     );
@@ -216,8 +244,8 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
-  void _showCreateTaskSheet(BuildContext context) {
-    showModalBottomSheet(
+  Future<void> _showCreateTaskSheet(BuildContext context) async {
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,

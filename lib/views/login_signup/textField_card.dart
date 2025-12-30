@@ -7,6 +7,7 @@ class TextfieldCard extends StatefulWidget {
   final String hintText;
   final bool isPassword;
   final TextInputType keyboardType;
+  final TextEditingController? controller;
 
   const TextfieldCard({
     super.key,
@@ -14,6 +15,7 @@ class TextfieldCard extends StatefulWidget {
     required this.hintText,
     this.isPassword = false,
     this.keyboardType = TextInputType.text,
+    this.controller,
   });
 
   @override
@@ -39,6 +41,7 @@ class _TextfieldCardState extends State<TextfieldCard> {
 
       ),
       child: TextField(
+        controller: widget.controller,
         obscureText: _obscureText,
         keyboardType: widget.keyboardType,
         style: context.textTheme.bodyLarge,
