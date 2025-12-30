@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart'; // Needed for date formatting
 import 'package:table_calendar/table_calendar.dart';
 import 'package:whispurr_hackathon/core/services/automations_service.dart';
 import 'package:whispurr_hackathon/core/services/supabase_service.dart';
@@ -18,53 +20,66 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // ─────────────────────────────────────────────
-  // State Variables
-  // ─────────────────────────────────────────────
-  
-  // Calendar
+  // Calendar State
   CalendarFormat _calendarFormat = CalendarFormat.week;
   DateTime _focusedDay = DateTime.now();
-  DateTime? _selectedDay;
+  DateTime _selectedDay = DateTime.now(); // Default to now immediately
 
-  // Data
+  // Data State
   final Map<DateTime, List<CalendarTask>> _allTasks = {};
   final _automationsService = AutomationsService();
   List<CalendarTask> _selectedEvents = [];
   
-  // Notes
+  // Note State
   Map<String, dynamic>? _recentNote; 
 
-  // Summary Card Stats
+  // Summary State
   int _todaysTaskCount = 0;
   double _todaysSleep = 0.0;
   bool _isHappyMood = true;
+  
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _selectedDay = _normalizeDate(DateTime.now());
     
-    // Only fetch data if user is logged in
     final user = SupabaseService.client.auth.currentUser;
     if (user != null) {
       _fetchTasks();
       _fetchRecentNote();
+      
+      // Auto-refresh every 5 seconds to catch new tasks
+      _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+        if (mounted) _fetchTasks();
+      });
     }
   }
 
-  // ─────────────────────────────────────────────
-  // Backend Logic
-  // ─────────────────────────────────────────────
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
 
-  // 1. Fetch Calendar Tasks & Calculate Summary
+  Future<void> _onRefresh() async {
+    await _fetchTasks();
+    await _fetchRecentNote();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Refreshed!'), duration: Duration(milliseconds: 500)),
+      );
+    }
+  }
+
   Future<void> _fetchTasks() async {
     final user = SupabaseService.client.auth.currentUser;
     if (user == null) return;
 
     try {
       final data = await _automationsService.getAutomations(user.id);
-
+      
       if (!mounted) return;
 
       setState(() {
@@ -78,45 +93,47 @@ class _HomePageState extends State<HomePage> {
           final payload = item['payload'] ?? {};
           final title = item['title'] ?? 'Untitled';
           final status = item['status'] ?? 'pending';
+          final id = item['id'].toString(); 
 
           final dateStr = payload['start_date'];
+          final endDateStr = payload['end_date'];
+
           if (dateStr != null) {
-            final date = DateTime.parse(dateStr);
-            final normalizedDate = _normalizeDate(date);
-            // Format time (e.g., 08:30)
-            final timeStr = "${date.hour}:${date.minute.toString().padLeft(2, '0')}";
+            final startDate = DateTime.parse(dateStr);
+            final endDate = endDateStr != null ? DateTime.parse(endDateStr) : startDate;
+            final timeStr = "${startDate.hour}:${startDate.minute.toString().padLeft(2, '0')}";
 
             final task = CalendarTask(
+              id: id,
               title: title,
               time: timeStr,
               color: const Color(0xFFA8C69F),
               isCompleted: status == 'completed',
             );
 
-            if (_allTasks[normalizedDate] == null) {
-              _allTasks[normalizedDate] = [];
-            }
-            _allTasks[normalizedDate]!.add(task);
-
-            // Calculate "Today" stats
-            if (normalizedDate == todayKey) {
-              todayTotal++;
-              if (task.isCompleted) todayCompleted++;
+            for (var day = _normalizeDate(startDate);
+                !day.isAfter(_normalizeDate(endDate));
+                day = day.add(const Duration(days: 1))) {
               
-              // Logic: If task title contains "sleep", use a dummy value (or real duration if you have it)
-              if (title.toLowerCase().contains("sleep")) {
-                  calculatedSleep = 8.0; 
+              if (_allTasks[day] == null) _allTasks[day] = [];
+              if (!_allTasks[day]!.any((t) => t.id == task.id)) {
+                _allTasks[day]!.add(task);
+              }
+
+              if (day == todayKey) {
+                todayTotal++;
+                if (task.isCompleted) todayCompleted++;
+                if (title.toLowerCase().contains("sleep")) calculatedSleep = 8.0; 
               }
             }
           }
         }
 
-        // Update Summary State
         _todaysTaskCount = todayTotal;
         _todaysSleep = calculatedSleep;
         _isHappyMood = todayTotal == 0 || (todayCompleted / todayTotal) >= 0.5;
 
-        // Refresh list
+        // Force update the list for the currently selected day
         _loadTasksForSelectedDay();
       });
     } catch (e) {
@@ -124,55 +141,60 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // 2. Fetch Most Recent Note from Supabase
   Future<void> _fetchRecentNote() async {
     final user = SupabaseService.client.auth.currentUser;
     if (user == null) return;
-
     try {
       final response = await SupabaseService.client
           .from('notes')
           .select()
           .eq('user_id', user.id)
-          .order('created_at', ascending: false) // Newest first
+          .order('created_at', ascending: false)
           .limit(1)
-          .maybeSingle(); 
-
+          .maybeSingle();
       if (!mounted) return;
-
       if (response != null) {
-        setState(() {
-          _recentNote = response;
-        });
+        setState(() => _recentNote = response);
       }
-    } catch (e) {
-      debugPrint("Error fetching notes: $e");
-    }
+    } catch (e) {}
   }
 
-  // ─────────────────────────────────────────────
-  // Utilities
-  // ─────────────────────────────────────────────
   DateTime _normalizeDate(DateTime date) {
     return DateTime(date.year, date.month, date.day);
   }
 
   void _loadTasksForSelectedDay() {
-    final key = _normalizeDate(_selectedDay!);
+    final key = _normalizeDate(_selectedDay);
     setState(() {
       _selectedEvents = _allTasks[key] ?? [];
     });
   }
 
-  // ─────────────────────────────────────────────
-  // UI
-  // ─────────────────────────────────────────────
+  Future<void> _handleTaskToggle(CalendarTask task) async {
+    setState(() => task.isCompleted = !task.isCompleted);
+    if (task.id != null) {
+      try {
+        final newStatus = task.isCompleted ? 'completed' : 'pending';
+        await _automationsService.updateStatus(task.id!, newStatus);
+      } catch (e) {
+        if (mounted) setState(() => task.isCompleted = !task.isCompleted);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = SupabaseService.client.auth.currentUser;
     final userName = user?.userMetadata?['first_name'] ?? 'Friend'; 
+    
+    // Create a dynamic header based on selected day
+    final bool isToday = isSameDay(_selectedDay, DateTime.now());
+    final String listHeader = isToday 
+        ? "Today's Tasks" 
+        : "Tasks for ${DateFormat('MMM d').format(_selectedDay)}";
 
     return Scaffold(
+      backgroundColor: Colors.white,
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -183,148 +205,129 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(32.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Text(
-                  "Hello, $userName!",
-                  style: context.textTheme.displayLarge,
-                ),
-                const SizedBox(height: 25),
-                
-                // CALENDAR
-                TableCalendar(
-                  firstDay: DateTime.utc(2025, 1, 1),
-                  lastDay: DateTime.utc(2030, 12, 31),
-                  focusedDay: _focusedDay,
-                  calendarFormat: _calendarFormat,
-                  headerVisible: false,
-                  
-                  // Show dots for events
-                  eventLoader: (day) {
-                    return _allTasks[_normalizeDate(day)] ?? [];
-                  },
-                  
-                  selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-                  onDaySelected: (selectedDay, focusedDay) {
-                    _selectedDay = _normalizeDate(selectedDay);
-                    _focusedDay = focusedDay;
-                    _loadTasksForSelectedDay();
-                  },
-                  
-                  calendarStyle: CalendarStyle(
-                    todayDecoration: BoxDecoration(
-                      color: AppColors.black.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    selectedDecoration: const BoxDecoration(
-                      color: AppColors.black,
-                      shape: BoxShape.circle,
-                    ),
-                    // Fixed Marker Decoration
-                    markerDecoration: const BoxDecoration(
-                      color: Color(0xFF000000), 
-                      shape: BoxShape.circle,
-                    ),
-                    defaultTextStyle: const TextStyle(fontWeight: FontWeight.w500),
+          child: RefreshIndicator(
+            onRefresh: _onRefresh,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(), 
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text("Hello, $userName!", style: context.textTheme.displayLarge),
+                      IconButton(
+                        onPressed: _onRefresh,
+                        icon: const Icon(Icons.refresh, color: AppColors.black),
+                      ),
+                    ],
                   ),
-                  headerStyle: const HeaderStyle(
-                    formatButtonVisible: false,
-                    titleCentered: true,
-                    titleTextStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                
-                const SizedBox(height: 20),
-                
-                // SUMMARY CARD (Functional)
-                SummaryCard(
-                  taskCount: _todaysTaskCount,
-                  sleepHours: _todaysSleep, 
-                  isHappy: _isHappyMood,
-                ),
-                
-                const SizedBox(height: 32),
-                
-                // TASKS HEADER
-                const Text(
-                  "Today's Tasks",
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                
-                // TASKS LIST
-                if (_selectedEvents.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20),
-                    child: Text(
-                      "No tasks for today!",
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  )
-                else
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _selectedEvents.length,
-                    itemBuilder: (context, index) {
-                      final task = _selectedEvents[index];
-                      return TaskCard(
-                        title: task.title,
-                        subtitle: task.time,
-                        dotColor: task.color,
-                        isCompleted: task.isCompleted,
-                        onToggle: (_) {
-                          setState(() {
-                            task.isCompleted = !task.isCompleted;
-                          });
-                        },
-                        onTap: () {},
-                      );
+                  const SizedBox(height: 25),
+                  
+                  // CALENDAR STRIP
+                  TableCalendar(
+                    firstDay: DateTime.utc(2025, 1, 1),
+                    lastDay: DateTime.utc(2030, 12, 31),
+                    focusedDay: _focusedDay,
+                    calendarFormat: _calendarFormat,
+                    headerVisible: false,
+                    eventLoader: (day) => _allTasks[_normalizeDate(day)] ?? [],
+                    selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                    onDaySelected: (selectedDay, focusedDay) {
+                      setState(() {
+                        _selectedDay = _normalizeDate(selectedDay);
+                        _focusedDay = focusedDay;
+                        _loadTasksForSelectedDay(); // This updates the list below!
+                      });
                     },
-                  ),
-                  
-                const SizedBox(height: 25),
-                
-                // RECENT NOTES HEADER
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      "Recent Notes",
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        widget.onTabChange(2);
-                      },
-                      child: const Text(
-                        "See all",
-                        style: TextStyle(color: AppColors.black),
+                    calendarStyle: CalendarStyle(
+                      todayDecoration: BoxDecoration(
+                        color: AppColors.black.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      selectedDecoration: const BoxDecoration(
+                        color: AppColors.black,
+                        shape: BoxShape.circle,
+                      ),
+                      markerDecoration: const BoxDecoration(
+                        color: Color(0xFFA8C69F), 
+                        shape: BoxShape.circle,
                       ),
                     ),
-                  ],
-                ),
-                
-                // RECENT NOTE CARD (Functional)
-                if (_recentNote != null)
-                  NoteCard(
-                    title: _recentNote!['title'] ?? 'No Title',
-                    content: _recentNote!['content'] ?? '',
-                    // Parse Supabase Timestamp to Date String
-                    date: _recentNote!['created_at'] != null 
-                        ? DateTime.parse(_recentNote!['created_at']).toString().split(' ')[0] 
-                        : 'Today',
-                  )
-                else
-                  const Padding(
-                    padding: EdgeInsets.only(top: 10),
-                    child: Text("No notes yet.", style: TextStyle(color: Colors.grey)),
                   ),
-              ],
+                  
+                  const SizedBox(height: 20),
+                  
+                  SummaryCard(
+                    taskCount: _todaysTaskCount,
+                    sleepHours: _todaysSleep, 
+                    isHappy: _isHappyMood,
+                  ),
+                  
+                  const SizedBox(height: 32),
+                  
+                  // DYNAMIC HEADER
+                  Text(
+                    listHeader, // Shows "Tasks for Dec 31" etc.
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  if (_selectedEvents.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      child: Text(
+                        "No tasks for ${DateFormat('MMM d').format(_selectedDay)}.",
+                        style: const TextStyle(color: Colors.grey),
+                      ),
+                    )
+                  else
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _selectedEvents.length,
+                      itemBuilder: (context, index) {
+                        final task = _selectedEvents[index];
+                        return TaskCard(
+                          title: task.title,
+                          subtitle: task.time,
+                          dotColor: task.color,
+                          isCompleted: task.isCompleted,
+                          onToggle: (_) => _handleTaskToggle(task),
+                          onTap: () {},
+                        );
+                      },
+                    ),
+                    
+                  const SizedBox(height: 25),
+                  
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("Recent Notes", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                      TextButton(
+                        onPressed: () => widget.onTabChange(2),
+                        child: const Text("See all", style: TextStyle(color: AppColors.black)),
+                      ),
+                    ],
+                  ),
+                  
+                  if (_recentNote != null)
+                    NoteCard(
+                      title: _recentNote!['title'] ?? 'No Title',
+                      content: _recentNote!['content'] ?? '',
+                      date: _recentNote!['created_at'] != null 
+                          ? DateTime.parse(_recentNote!['created_at']).toString().split(' ')[0] 
+                          : 'Today',
+                    )
+                  else
+                    const Padding(
+                      padding: EdgeInsets.only(top: 10),
+                      child: Text("No notes yet.", style: TextStyle(color: Colors.grey)),
+                    ),
+                ],
+              ),
             ),
           ),
         ),

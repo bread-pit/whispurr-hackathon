@@ -16,6 +16,7 @@ class _CreateTaskState extends State<CreateTask> {
   final _automationsService = AutomationsService();
   bool _isSaving = false;
   
+  // These variables were missing in your previous code
   DateTime startDate = DateTime.now();
   DateTime endDate = DateTime.now();
   String selectedRepeat = "Don't repeat";
@@ -43,9 +44,12 @@ class _CreateTaskState extends State<CreateTask> {
       return;
     }
 
-    // Ensure end date is not before start date
-    if (endDate.isBefore(DateTime(startDate.year, startDate.month, startDate.day))) {
-        endDate = startDate; 
+    // Fix end date logic
+    final cleanStart = DateTime(startDate.year, startDate.month, startDate.day);
+    final cleanEnd = DateTime(endDate.year, endDate.month, endDate.day);
+
+    if (cleanEnd.isBefore(cleanStart)) {
+       endDate = startDate;
     }
 
     setState(() => _isSaving = true);
@@ -58,8 +62,8 @@ class _CreateTaskState extends State<CreateTask> {
           title: _titleController.text,
           status: 'pending',
           payload: {
-            'start_date': startDate.toIso8601String(),
-            'end_date': endDate.toIso8601String(),
+            'start_date': cleanStart.toIso8601String(),
+            'end_date': cleanEnd.toIso8601String(),
             'repeat': selectedRepeat,
             'notes': _notesController.text,
           },
@@ -78,7 +82,7 @@ class _CreateTaskState extends State<CreateTask> {
       debugPrint('Error saving task: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to save task. Please try again.')),
+          const SnackBar(content: Text('Failed to save task.')),
         );
       }
     } finally {
@@ -169,17 +173,12 @@ class _CreateTaskState extends State<CreateTask> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 1. Title and Dates
             _buildFormSection(
               child: Column(
                 children: [
                   TextField(
                     controller: _titleController,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.normal,
-                      color: Colors.black,
-                    ),
+                    style: const TextStyle(fontSize: 24, color: Colors.black),
                     decoration: const InputDecoration(
                       hintText: "Title",
                       hintStyle: TextStyle(color: Colors.grey, fontSize: 24),
@@ -190,20 +189,18 @@ class _CreateTaskState extends State<CreateTask> {
                   _buildDateField(
                     "Start Date",
                     DateFormat('MMMM d, yyyy').format(startDate),
-                        () => _selectDate(context, true),
+                    () => _selectDate(context, true),
                   ),
                   const SizedBox(height: 12),
                   _buildDateField(
                     "End Date",
                     DateFormat('MMMM d, yyyy').format(endDate),
-                        () => _selectDate(context, false),
+                    () => _selectDate(context, false),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 12),
-
-            // 2. Notification and Repeat
             _buildFormSection(
               child: InkWell(
                 onTap: _showRepeatPicker,
@@ -215,8 +212,6 @@ class _CreateTaskState extends State<CreateTask> {
               ),
             ),
             const SizedBox(height: 12),
-
-            // 3. Notes Section with TextField
             _buildFormSection(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,8 +236,6 @@ class _CreateTaskState extends State<CreateTask> {
               ),
             ),
             const SizedBox(height: 24),
-
-            // 4. Action Buttons Footer
             Container(
               decoration: BoxDecoration(
                 color: Colors.black,
@@ -264,10 +257,7 @@ class _CreateTaskState extends State<CreateTask> {
                           ? const SizedBox(
                               height: 20,
                               width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
+                              child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
                             )
                           : const Text("Save", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),

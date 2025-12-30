@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class CalendarTask {
-  final int? id; 
+  final String? id; 
   final String title;
   final String time;
   final Color color;

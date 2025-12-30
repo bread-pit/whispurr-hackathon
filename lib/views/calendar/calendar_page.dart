@@ -22,11 +22,7 @@ class _CalendarPageState extends State<CalendarPage> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
-  // Stores events fetched from backend
   Map<DateTime, List<CalendarTask>> _events = {};
-
-  // REMOVED: _moodHistory (Fixed issue where random colors appeared on the calendar)
-
   List<CalendarTask> _selectedEvents = [];
 
   @override
@@ -43,7 +39,11 @@ class _CalendarPageState extends State<CalendarPage> {
 
   Future<void> _loadAutomations() async {
     if (!mounted) return;
-    setState(() => _isLoading = true);
+    
+    // Only show full loading spinner on first load
+    if (_events.isEmpty) {
+      setState(() => _isLoading = true);
+    }
     
     try {
       final user = SupabaseService.client.auth.currentUser;
@@ -56,7 +56,7 @@ class _CalendarPageState extends State<CalendarPage> {
           final payload = item['payload'] ?? {};
           final title = item['title'] ?? 'Untitled';
           final status = item['status'] ?? 'pending';
-          final id = item['id']; 
+          final id = item['id'].toString(); // Ensure ID is String
 
           final dateStr = payload['start_date'];
           final endDateStr = payload['end_date'];
@@ -64,7 +64,6 @@ class _CalendarPageState extends State<CalendarPage> {
           if (dateStr != null) {
             final startDate = DateTime.parse(dateStr);
             final endDate = endDateStr != null ? DateTime.parse(endDateStr) : startDate;
-            
             final timeStr = "${startDate.hour}:${startDate.minute.toString().padLeft(2, '0')}";
 
             final task = CalendarTask(
@@ -75,6 +74,7 @@ class _CalendarPageState extends State<CalendarPage> {
               isCompleted: status == 'completed',
             );
 
+            // Add task to every day in the range
             for (var day = _normalizeDate(startDate);
                 !day.isAfter(_normalizeDate(endDate));
                 day = day.add(const Duration(days: 1))) {
@@ -119,15 +119,13 @@ class _CalendarPageState extends State<CalendarPage> {
     if (task.id != null) {
       try {
         final newStatus = task.isCompleted ? 'completed' : 'pending';
+        // Now passing String ID correctly
         await _automationsService.updateStatus(task.id!, newStatus);
       } catch (e) {
         if (mounted) {
           setState(() {
             task.isCompleted = !task.isCompleted;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to update task status')),
-          );
         }
       }
     }
@@ -136,23 +134,17 @@ class _CalendarPageState extends State<CalendarPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // Safe background color
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _loadAutomations,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
-                _buildCustomCalendar(),
-                const SizedBox(height: 32),
-                _buildUpcomingSection(),
-                const SizedBox(height: 100),
-              ],
-            ),
+          child: Column(
+            children: [
+              const SizedBox(height: 20),
+              _buildCustomCalendar(),
+              const SizedBox(height: 32),
+              Expanded(child: _buildUpcomingSection()),
+            ],
           ),
         ),
       ),
@@ -162,7 +154,10 @@ class _CalendarPageState extends State<CalendarPage> {
         backgroundColor: const Color(0xFFA8C69F),
         onPressed: () async {
           await _showCreateTaskSheet(context);
-          _loadAutomations(); // Reloads calendar after creating task
+          await Future.delayed(const Duration(milliseconds: 500)); 
+          if (mounted) {
+            _loadAutomations();
+          }
         },
         child: const Icon(Icons.add, color: Colors.white, size: 30),
       ),
@@ -185,34 +180,22 @@ class _CalendarPageState extends State<CalendarPage> {
         rightChevronIcon: Icon(Icons.chevron_right, color: Colors.black),
         headerPadding: EdgeInsets.only(bottom: 20),
       ),
-      daysOfWeekStyle: const DaysOfWeekStyle(
-        weekdayStyle: TextStyle(color: Colors.grey),
-        weekendStyle: TextStyle(color: Colors.grey),
-      ),
       calendarStyle: const CalendarStyle(
-        // Default style for Today (Grey circle)
-        todayDecoration: BoxDecoration(
-          color: Color(0xFFEEEEEE), 
-          shape: BoxShape.circle,
-        ),
+        todayDecoration: BoxDecoration(color: Color(0xFFEEEEEE), shape: BoxShape.circle),
         todayTextStyle: TextStyle(color: Colors.black),
-        // Default style for Selected Day (Green circle)
-        selectedDecoration: BoxDecoration(
-          color: Color(0xFFA8C69F), 
-          shape: BoxShape.circle,
-        ),
+        selectedDecoration: BoxDecoration(color: Color(0xFFA8C69F), shape: BoxShape.circle),
+        defaultTextStyle: TextStyle(color: Colors.black),
       ),
       calendarBuilders: CalendarBuilders(
-        // Custom Marker Builder (The Dots)
         markerBuilder: (context, day, events) {
           if (events.isNotEmpty) {
             return Positioned(
-              bottom: 12,
+              bottom: 8,
               child: Container(
-                width: 6, // Made slightly bigger for visibility
+                width: 6,
                 height: 6,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFA8C69F), // Green color to "light up"
+                  color: Color(0xFFA8C69F), 
                   shape: BoxShape.circle,
                 ),
               ),
@@ -232,33 +215,35 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   Widget _buildUpcomingSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Upcoming",
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        if (_isLoading)
-           const Center(child: Padding(
-             padding: EdgeInsets.all(20.0),
-             child: CircularProgressIndicator(color: Color(0xFFA8C69F)),
-           ))
-        else if (_selectedEvents.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 20),
-            child: Text("No tasks for this day.", style: TextStyle(color: Colors.grey)),
-          )
-        else
-          ..._selectedEvents.map((task) => TaskCard(
-            title: task.title,
-            subtitle: task.time,
-            dotColor: task.color,
-            isCompleted: task.isCompleted,
-            onToggle: (val) => _handleTaskToggle(task),
-          )),
-      ],
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("Upcoming", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          if (_isLoading)
+             const Center(child: Padding(
+               padding: EdgeInsets.all(20.0),
+               child: CircularProgressIndicator(color: Color(0xFFA8C69F)),
+             ))
+          else if (_selectedEvents.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Text("No tasks for this day.", style: TextStyle(color: Colors.grey)),
+            )
+          else
+            ..._selectedEvents.map((task) => TaskCard(
+              title: task.title,
+              subtitle: task.time,
+              dotColor: task.color,
+              isCompleted: task.isCompleted,
+              onToggle: (val) => _handleTaskToggle(task),
+            )),
+          const SizedBox(height: 100),
+        ],
+      ),
     );
   }
 

@@ -18,7 +18,7 @@ class AutomationsService {
     }
   }
 
-  Future<bool> createAutomation({
+Future<bool> createAutomation({
     required String userId,
     required String title,
     String status = 'pending',
@@ -55,10 +55,7 @@ class AutomationsService {
     }
   }
 
-  // ADD THIS METHOD to fix your error
-  // Note: The 'id' in your CalendarTask model is likely an int, 
-  // so this accepts 'int id'. If your DB uses UUID strings, change int to String.
-  Future<void> updateStatus(int id, String status) async {
+Future<void> updateStatus(String id, String status) async {
     try {
       await _supabase
           .from('automations')
@@ -66,7 +63,7 @@ class AutomationsService {
           .eq('id', id);
     } catch (e) {
       debugPrint('Error updating status: $e');
-      rethrow; // Optional: rethrow so the UI knows it failed
+      rethrow;
     }
   }
 }
