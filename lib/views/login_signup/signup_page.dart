@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:whispurr_hackathon/theme.dart';
 import 'package:whispurr_hackathon/views/login_signup/textField_card.dart';
+import 'package:whispurr_hackathon/views/navigation/navigation_route.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -80,7 +81,12 @@ class _SignupPageState extends State<SignupPage> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (context) => const NavigateRoute()),
+                          );
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Color(0xff628141),
                           foregroundColor: Colors.white, // Text color
