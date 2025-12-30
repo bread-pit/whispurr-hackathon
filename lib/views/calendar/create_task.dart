@@ -159,7 +159,7 @@ class _CreateTaskState extends State<CreateTask> {
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
-      child: SingleChildScrollView( // Added scroll support for many options
+      child: SingleChildScrollView( 
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

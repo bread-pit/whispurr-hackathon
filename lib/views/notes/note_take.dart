@@ -25,9 +25,13 @@ class _NoteTakeState extends State<NoteTake> {
   }
 
   Future<void> _saveNote() async {
-    if (_contentController.text.isEmpty) {
+    // 1. Check if content is empty
+    if (_contentController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please write something first')),
+        const SnackBar(
+          content: Text('Please write some content in the main text area.'),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
@@ -36,27 +40,41 @@ class _NoteTakeState extends State<NoteTake> {
 
     try {
       final user = SupabaseService.client.auth.currentUser;
+      
+      // 2. Check if user is logged in
       if (user != null) {
         await _logsService.createLog(
           userId: user.id,
-          mood: _titleController.text.isNotEmpty ? _titleController.text : 'Note',
+          mood: _titleController.text.isNotEmpty ? _titleController.text : 'Untitled Note',
           content: _contentController.text,
         );
+        
         if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Note Saved!'), backgroundColor: Colors.green),
+          );
           Navigator.pop(context);
         }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please sign in to save notes')),
+            const SnackBar(
+              content: Text('Error: You are not logged in. Please restart the app.'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
     } catch (e) {
       debugPrint('Error saving note: $e');
       if (mounted) {
+        // 3. Display the actual error from Supabase
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save note: $e')),
+          SnackBar(
+            content: Text('Database Error: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
         );
       }
     } finally {
@@ -79,7 +97,6 @@ class _NoteTakeState extends State<NoteTake> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          // Optional: Add a checkmark or 'Save' button
           TextButton(
             onPressed: _isSaving ? null : _saveNote,
             child: _isSaving
@@ -91,9 +108,11 @@ class _NoteTakeState extends State<NoteTake> {
                 : Text(
                     'Save',
                     style: TextStyle(
-                      color: context.mood.happy
+                      color: context.mood.happy,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
                     ),
-                  )
+                  ),
           )
         ],
       ),
@@ -103,7 +122,7 @@ class _NoteTakeState extends State<NoteTake> {
           children: [
             const SizedBox(height: 20),
 
-            // 1. Title Input
+            // Title Input
             TextField(
               controller: _titleController,
               style: context.textTheme.displaySmall?.copyWith(
@@ -116,7 +135,7 @@ class _NoteTakeState extends State<NoteTake> {
                   color: AppColors.black.withOpacity(0.3),
                   fontSize: 24,
                 ),
-                border: InputBorder.none, // Removes default underline
+                border: InputBorder.none,
               ),
               maxLines: 1,
             ),
@@ -131,28 +150,28 @@ class _NoteTakeState extends State<NoteTake> {
               ),
             ),
 
-
-            // 2. Divider
             Divider(
               color: AppColors.black.withOpacity(0.1),
               thickness: 1,
               height: 32,
             ),
 
-            // 3. Note Content Input
+            // Note Content Input
             TextField(
               controller: _contentController,
               style: context.textTheme.bodyLarge,
               decoration: InputDecoration(
-                hintText: 'Aa...',
+                hintText: 'Start writing here...', // Added clearer hint
                 hintStyle: context.textTheme.bodyLarge?.copyWith(
                   color: AppColors.black.withOpacity(0.3),
                 ),
                 border: InputBorder.none,
               ),
-              maxLines: null, // Allows the field to grow as you type
+              maxLines: null,
               keyboardType: TextInputType.multiline,
             ),
+            
+            const SizedBox(height: 300), 
           ],
         ),
       ),

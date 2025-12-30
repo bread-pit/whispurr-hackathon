@@ -1,70 +1,40 @@
-import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:whispurr_hackathon/core/services/supabase_service.dart';
 
 class LogsService {
-  final _supabase = SupabaseService.client;
+  final _client = SupabaseService.client;
 
+  /// Fetch all logs for a specific user
   Future<List<Map<String, dynamic>>> getLogs(String userId) async {
     try {
-      final response = await _supabase
+      final response = await _client
           .from('logs')
           .select()
           .eq('user_id', userId)
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false); // Newest first
+      
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      debugPrint('Error fetching logs: $e');
-      return [];
+      throw Exception('Error fetching logs: $e');
     }
   }
 
-  Future<bool> createLog({
+  /// Create a new log entry
+  Future<void> createLog({
     required String userId,
-    String? mood,
-    String? content,
+    required String mood,   // Maps to Title
+    required String content, // Maps to Content
     Map<String, dynamic>? context,
   }) async {
     try {
-      await _supabase.from('logs').insert({
+      await _client.from('logs').insert({
         'user_id': userId,
         'mood': mood,
         'content': content,
-        'context': context,
+        'context': context ?? {},
       });
-      return true;
     } catch (e) {
-      debugPrint('Error creating log: $e');
-      return false;
-    }
-  }
-
-  Future<bool> updateLog({
-    required String logId,
-    String? mood,
-    String? content,
-    Map<String, dynamic>? context,
-  }) async {
-    try {
-      final updates = <String, dynamic>{};
-      if (mood != null) updates['mood'] = mood;
-      if (content != null) updates['content'] = content;
-      if (context != null) updates['context'] = context;
-
-      await _supabase.from('logs').update(updates).eq('id', logId);
-      return true;
-    } catch (e) {
-      debugPrint('Error updating log: $e');
-      return false;
-    }
-  }
-
-  Future<bool> deleteLog(String logId) async {
-    try {
-      await _supabase.from('logs').delete().eq('id', logId);
-      return true;
-    } catch (e) {
-      debugPrint('Error deleting log: $e');
-      return false;
+      throw Exception('Error creating log: $e');
     }
   }
 }

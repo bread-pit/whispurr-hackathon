@@ -1,14 +1,12 @@
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
 import 'package:whispurr_hackathon/theme.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 class SummaryCard extends StatelessWidget {
   const SummaryCard({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Shared border style for all cards
     final cardBorder = Border.all(
       color: AppColors.black.withValues(alpha: 0.5),
       width: 0.5,
@@ -16,8 +14,6 @@ class SummaryCard extends StatelessWidget {
 
     return Row(
       children: [
-
-        // Whispurr Mood (Left Big Box with Broken Lines)
         Expanded(
           flex: 2,
           child: Container(
@@ -29,13 +25,14 @@ class SummaryCard extends StatelessWidget {
             ),
             padding: const EdgeInsets.all(16),
             child: DottedBorder(
-              options: RoundedRectDottedBorderOptions(
+              options: const RoundedRectDottedBorderOptions(
                 dashPattern: [5, 5],
                 radius: Radius.circular(16),
-                color: Colors.white
+                color: Colors.white,
               ),
               child: Center(
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(25.0),
@@ -46,9 +43,8 @@ class SummaryCard extends StatelessWidget {
                         width: 130,
                       ),
                     ),
-
                     Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
                         "Whispurr smiles with you today.",
                         textAlign: TextAlign.center,
@@ -58,20 +54,16 @@ class SummaryCard extends StatelessWidget {
                       ),
                     ),
                   ],
-                )
-              )
-            )
+                ),
+              ),
+            ),
           ),
         ),
-
         const SizedBox(width: 25),
-
-        // Sleep & Task Column (Right Side)
         Expanded(
           flex: 1,
           child: Column(
             children: [
-              // Sleep Data Container
               Container(
                 height: 100,
                 width: double.infinity,
@@ -81,10 +73,10 @@ class SummaryCard extends StatelessWidget {
                   border: cardBorder,
                 ),
                 child: Padding(
-                  padding: EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(12),
                   child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // icon
                       Align(
                         alignment: Alignment.topLeft,
                         child: Image.asset(
@@ -93,37 +85,30 @@ class SummaryCard extends StatelessWidget {
                           width: 21,
                         ),
                       ),
-
-                      // hrs of sleep
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          "6.5",
-                          style: context.textTheme.displayLarge?.copyWith(
-                            fontSize: 36
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            "6.5",
+                            style: context.textTheme.displayLarge?.copyWith(
+                              fontSize: 36,
+                            ),
+                            textAlign: TextAlign.right,
                           ),
-                          textAlign: TextAlign.right,
-                        ),
-                      ),
-
-                      // label
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          "hrs of sleep",
-                          style: TextStyle(
-                            fontSize: 10
+                          const Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              "hrs of sleep",
+                              style: TextStyle(fontSize: 10),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ],
                   ),
-                )
+                ),
               ),
-
               const SizedBox(height: 25),
-
-              // Task Count Container
               Container(
                 height: 100,
                 width: double.infinity,
@@ -132,49 +117,45 @@ class SummaryCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(25.0),
                   border: cardBorder,
                 ),
-                  child: Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Column(
-                      children: [
-                        // icon
-                        Align(
-                          alignment: Alignment.topLeft,
-                          child: Image.asset(
-                            "assets/images/tasks.png",
-                            height: 21,
-                            width: 21,
-                          ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Align(
+                        alignment: Alignment.topLeft,
+                        child: Image.asset(
+                          "assets/images/tasks.png",
+                          height: 21,
+                          width: 21,
                         ),
-
-                        // hrs of sleep
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: Text(
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
                             "10",
                             style: context.textTheme.displayLarge?.copyWith(
-                                fontSize: 36
+                              fontSize: 36,
                             ),
                             textAlign: TextAlign.right,
                           ),
-                        ),
-
-                        // label
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: Text(
-                            "tasks",
-                            style: TextStyle(
-                                fontSize: 10
+                          const Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              "tasks",
+                              style: TextStyle(fontSize: 10),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  )
-              )
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
-        )
+        ),
       ],
     );
   }

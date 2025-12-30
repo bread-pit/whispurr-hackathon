@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:table_calendar/table_calendar.dart';
+import 'package:whispurr_hackathon/core/services/automations_service.dart';
+import 'package:whispurr_hackathon/core/services/supabase_service.dart';
 import 'package:whispurr_hackathon/core/widgets/note_card.dart';
 import 'package:whispurr_hackathon/views/home/summary_card.dart';
-import 'package:table_calendar/table_calendar.dart';
 import '../../core/model/calendar_model.dart';
 import '../../core/widgets/task_card.dart';
 import '../../theme.dart';
-
-// TODO:
-// 1. connect mood color
-// 2. calendar colors
-// 3. connect tasks and notes to database
 
 class HomePage extends StatefulWidget {
   final Function(int) onTabChange;
@@ -21,45 +18,93 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // Calendar State
   CalendarFormat _calendarFormat = CalendarFormat.week;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
+  final Map<DateTime, List<CalendarTask>> _allTasks = {};
+  final _automationsService = AutomationsService();
+  List<CalendarTask> _selectedEvents = [];
+
+  // Variable to store the user's name
+  String _userName = "Friend";
+
   @override
   void initState() {
     super.initState();
-    _selectedDay = _focusedDay;
+    _selectedDay = _normalizeDate(DateTime.now());
+    _loadUserName(); // Fetch the name on init
+    _fetchTasks();
   }
 
-  // Mock data for the current day's tasks
-  // In a real scenario, you'd filter your global events list by DateTime.now()
-  List<CalendarTask> _selectedEvents = [
-    CalendarTask(
-      title: "Morning Meditation",
-      time: "8:00 AM",
-      color: const Color(0xFFA8C69F),
-      isCompleted: false,
-    ),
-    CalendarTask(
-      title: "Check Whispurr Mood",
-      time: "9:30 AM",
-      color: const Color(0xFFA8C69F),
-      isCompleted: true,
-    ),
-    CalendarTask(
-      title: "Morning Meditation",
-      time: "8:00 AM",
-      color: const Color(0xFFA8C69F),
-      isCompleted: false,
-    ),
-    CalendarTask(
-      title: "Check Whispurr Mood",
-      time: "9:30 AM",
-      color: const Color(0xFFA8C69F),
-      isCompleted: true,
-    ),
-  ];
+  // Fetch user name from Supabase metadata
+  void _loadUserName() {
+    final user = SupabaseService.client.auth.currentUser;
+    if (user != null) {
+      final metaName = user.userMetadata?['full_name'];
+      if (metaName != null && metaName.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _userName = metaName;
+          });
+        }
+      }
+    }
+  }
+
+  Future<void> _fetchTasks() async {
+    final user = SupabaseService.client.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final data = await _automationsService.getAutomations(user.id);
+
+      if (!mounted) return;
+
+      setState(() {
+        _allTasks.clear();
+
+        for (var item in data) {
+          final payload = item['payload'] ?? {};
+          final title = item['title'] ?? 'Untitled';
+          final status = item['status'] ?? 'pending';
+
+          final dateStr = payload['start_date'];
+          if (dateStr != null) {
+            final date = DateTime.parse(dateStr);
+            final normalizedDate = _normalizeDate(date);
+            final timeStr = "${date.hour}:${date.minute.toString().padLeft(2, '0')}";
+
+            final task = CalendarTask(
+              title: title,
+              time: timeStr,
+              color: const Color(0xFFA8C69F),
+              isCompleted: status == 'completed',
+            );
+
+            if (_allTasks[normalizedDate] == null) {
+              _allTasks[normalizedDate] = [];
+            }
+            _allTasks[normalizedDate]!.add(task);
+          }
+        }
+        _loadTasksForSelectedDay();
+      });
+    } catch (e) {
+      debugPrint("Error fetching home tasks: $e");
+    }
+  }
+
+  DateTime _normalizeDate(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
+
+  void _loadTasksForSelectedDay() {
+    final key = _normalizeDate(_selectedDay!);
+    setState(() {
+      _selectedEvents = _allTasks[key] ?? [];
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,32 +120,29 @@ class _HomePageState extends State<HomePage> {
         ),
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: EdgeInsets.all(32.0),
+            padding: const EdgeInsets.all(32.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-
                 Text(
-                  "Hello, Angelica!",
+                  "Hello, $_userName!", // Dynamic name displayed here
                   style: context.textTheme.displayLarge,
                 ),
-
-                SizedBox(height: 25),
-
-                // CALENDAR
+                const SizedBox(height: 25),
                 TableCalendar(
                   firstDay: DateTime.utc(2025, 1, 1),
                   lastDay: DateTime.utc(2030, 12, 31),
                   focusedDay: _focusedDay,
-                  calendarFormat: _calendarFormat, // Fixed to week
+                  calendarFormat: _calendarFormat,
                   headerVisible: false,
+                  eventLoader: (day) {
+                    return _allTasks[_normalizeDate(day)] ?? [];
+                  },
                   selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
                   onDaySelected: (selectedDay, focusedDay) {
-                    setState(() {
-                      _selectedDay = selectedDay;
-                      _focusedDay = focusedDay;
-                    });
-                    // Filter tasks based on selectedDay here
+                    _selectedDay = _normalizeDate(selectedDay);
+                    _focusedDay = focusedDay;
+                    _loadTasksForSelectedDay();
                   },
                   calendarStyle: CalendarStyle(
                     todayDecoration: BoxDecoration(
@@ -108,6 +150,10 @@ class _HomePageState extends State<HomePage> {
                       shape: BoxShape.circle,
                     ),
                     selectedDecoration: const BoxDecoration(
+                      color: AppColors.black,
+                      shape: BoxShape.circle,
+                    ),
+                    markerDecoration: const BoxDecoration(
                       color: AppColors.black,
                       shape: BoxShape.circle,
                     ),
@@ -119,32 +165,26 @@ class _HomePageState extends State<HomePage> {
                     titleTextStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
-
-                SizedBox(height: 20),
-
-                // 2. Summary Board
-                SummaryCard(),
-
-                SizedBox(height: 32),
-
-                // 3. Today's Tasks Header
-                Text(
+                const SizedBox(height: 20),
+                const SummaryCard(),
+                const SizedBox(height: 32),
+                const Text(
                   "Today's Tasks",
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                 ),
-
-                SizedBox(height: 16),
-
-                // 4. Task List Implementation
+                const SizedBox(height: 16),
                 if (_selectedEvents.isEmpty)
-                  Padding(
+                  const Padding(
                     padding: EdgeInsets.symmetric(vertical: 20),
-                    child: Text("No tasks for today!", style: TextStyle(color: Colors.grey)),
+                    child: Text(
+                      "No tasks for today!",
+                      style: TextStyle(color: Colors.grey),
+                    ),
                   )
                 else
                   ListView.builder(
                     shrinkWrap: true,
-                    physics: NeverScrollableScrollPhysics(),
+                    physics: const NeverScrollableScrollPhysics(),
                     itemCount: _selectedEvents.length,
                     itemBuilder: (context, index) {
                       final task = _selectedEvents[index];
@@ -153,48 +193,39 @@ class _HomePageState extends State<HomePage> {
                         subtitle: task.time,
                         dotColor: task.color,
                         isCompleted: task.isCompleted,
-                        onToggle: (val) {
+                        onToggle: (_) {
                           setState(() {
                             task.isCompleted = !task.isCompleted;
                           });
                         },
-                        onTap: () {
-                          // Handle navigation to task details
-                        },
+                        onTap: () {},
                       );
                     },
                   ),
-
-                SizedBox(height: 25),
-
-                // 5. Recent Notes Section...
+                const SizedBox(height: 25),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
+                    const Text(
                       "Recent Notes",
                       style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                     ),
-
                     TextButton(
-                        onPressed: () {
-                          widget.onTabChange(2);
-                        },
-                        child: Text(
-                            "See all",
-                          style: TextStyle(
-                            color: AppColors.black
-                          ),
-                        )
+                      onPressed: () {
+                        widget.onTabChange(2);
+                      },
+                      child: const Text(
+                        "See all",
+                        style: TextStyle(color: AppColors.black),
+                      ),
                     ),
                   ],
                 ),
-
-                NoteCard(
+                const NoteCard(
                   title: "Hello",
                   content: "Hello",
-                  date: "Date"
-                )
+                  date: "Date",
+                ),
               ],
             ),
           ),

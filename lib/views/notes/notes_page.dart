@@ -15,8 +15,12 @@ class NotesPage extends StatefulWidget {
 
 class _NotesPageState extends State<NotesPage> {
   final _logsService = LogsService();
+
   List<Map<String, dynamic>> _logs = [];
   bool _isLoading = true;
+
+  /// true = newest first
+  bool _sortDescending = true;
 
   @override
   void initState() {
@@ -24,23 +28,47 @@ class _NotesPageState extends State<NotesPage> {
     _loadLogs();
   }
 
+
+  // Backend Logic
   Future<void> _loadLogs() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
+
     try {
       final user = SupabaseService.client.auth.currentUser;
-      if (user != null) {
-        final logs = await _logsService.getLogs(user.id);
-        setState(() {
-          _logs = logs;
-          _isLoading = false;
-        });
-      } else {
-        setState(() => _isLoading = false);
+      if (user == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
       }
-    } catch (e) {
+
+      final logs = await _logsService.getLogs(user.id);
+
+      // Defensive sort (backend-safe)
+      logs.sort((a, b) {
+        final aDate = DateTime.tryParse(a['created_at'] ?? '') ?? DateTime(1970);
+        final bDate = DateTime.tryParse(b['created_at'] ?? '') ?? DateTime(1970);
+        return _sortDescending
+            ? bDate.compareTo(aDate)
+            : aDate.compareTo(bDate);
+      });
+
+      if (!mounted) return;
+      setState(() {
+        _logs = logs;
+        _isLoading = false;
+      });
+    } catch (e, stack) {
       debugPrint('Error loading logs: $e');
-      setState(() => _isLoading = false);
+      debugPrintStack(stackTrace: stack);
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _toggleSort() {
+    setState(() {
+      _sortDescending = !_sortDescending;
+    });
+    _loadLogs();
   }
 
   String _formatDate(String? dateStr) {
@@ -48,10 +76,14 @@ class _NotesPageState extends State<NotesPage> {
     try {
       final date = DateTime.parse(dateStr);
       return DateFormat('MMM dd, yyyy').format(date);
-    } catch (e) {
+    } catch (_) {
       return 'Unknown date';
     }
   }
+
+  // ─────────────────────────────────────────────
+  // UI
+  // ─────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -72,7 +104,6 @@ class _NotesPageState extends State<NotesPage> {
                 Text(
                   'All Notes',
                   style: context.textTheme.displayLarge?.copyWith(
-
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -83,20 +114,19 @@ class _NotesPageState extends State<NotesPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    // Menu + Date combined button
                     InkWell(
-                      onTap: () {},
+                      onTap: _toggleSort,
                       borderRadius: BorderRadius.circular(8),
                       child: Row(
                         children: [
-                          const Icon(Icons.menu_rounded, size: 18, color: AppColors.black),
+                          const Icon(Icons.menu_rounded,
+                              size: 18, color: AppColors.black),
                           const SizedBox(width: 4),
                           Text('Date', style: context.textTheme.bodySmall),
                         ],
                       ),
                     ),
 
-                    // Divider
                     Container(
                       height: 12,
                       width: 1,
@@ -104,14 +134,19 @@ class _NotesPageState extends State<NotesPage> {
                       color: AppColors.black.withOpacity(0.3),
                     ),
 
-                    // Sort arrow
-                    const Icon(Icons.arrow_upward, size: 18, color: AppColors.black),
+                    Icon(
+                      _sortDescending
+                          ? Icons.arrow_downward
+                          : Icons.arrow_upward,
+                      size: 18,
+                      color: AppColors.black,
+                    ),
                   ],
                 ),
 
                 const SizedBox(height: 30),
 
-                // Note Cards List
+                // Notes list
                 if (_isLoading)
                   const Center(child: CircularProgressIndicator())
                 else if (_logs.isEmpty)
@@ -123,17 +158,20 @@ class _NotesPageState extends State<NotesPage> {
                     ),
                   )
                 else
-                  ..._logs.map((log) => NoteCard(
-                    title: log['mood'] ?? 'Note',
-                    content: log['content'] ?? '',
-                    date: _formatDate(log['created_at']),
-                  )).toList(),
-
+                  ..._logs.map(
+                    (log) => NoteCard(
+                      title: log['mood'] ?? 'Note',
+                      content: log['content'] ?? '',
+                      date: _formatDate(log['created_at']),
+                    ),
+                  ),
               ],
             ),
           ),
         ),
       ),
+
+      // FAB
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
@@ -141,7 +179,7 @@ class _NotesPageState extends State<NotesPage> {
             context,
             MaterialPageRoute(builder: (context) => const NoteTake()),
           );
-          _loadLogs(); // Reload logs after returning from note creation
+          _loadLogs();
         },
         backgroundColor: context.mood.happy,
         shape: CircleBorder(
