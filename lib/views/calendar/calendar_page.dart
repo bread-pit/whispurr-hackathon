@@ -25,13 +25,7 @@ class _CalendarPageState extends State<CalendarPage> {
   // Stores events fetched from backend
   Map<DateTime, List<CalendarTask>> _events = {};
 
-  // Hardcoded mood history for visual demo (you can connect this to logs later)
-  final Map<DateTime, Color> _moodHistory = {
-    DateTime(2025, 12, 1): Colors.pink.shade100,
-    DateTime(2025, 12, 2): Colors.blue.shade200,
-    DateTime(2025, 12, 3): Colors.yellow.shade200,
-    DateTime(2025, 12, 4): Colors.green.shade300,
-  };
+  // REMOVED: _moodHistory (Fixed issue where random colors appeared on the calendar)
 
   List<CalendarTask> _selectedEvents = [];
 
@@ -39,12 +33,10 @@ class _CalendarPageState extends State<CalendarPage> {
   void initState() {
     super.initState();
     _selectedDay = _normalizeDate(DateTime.now());
-    // Start with empty events, they will load via _loadAutomations
     _selectedEvents = []; 
     _loadAutomations();
   }
 
-  // Helper to remove time from dates for accurate comparison
   DateTime _normalizeDate(DateTime date) {
     return DateTime(date.year, date.month, date.day);
   }
@@ -64,33 +56,45 @@ class _CalendarPageState extends State<CalendarPage> {
           final payload = item['payload'] ?? {};
           final title = item['title'] ?? 'Untitled';
           final status = item['status'] ?? 'pending';
+          final id = item['id']; 
 
           final dateStr = payload['start_date'];
+          final endDateStr = payload['end_date'];
+
           if (dateStr != null) {
-            final date = DateTime.parse(dateStr);
-            final key = _normalizeDate(date);
+            final startDate = DateTime.parse(dateStr);
+            final endDate = endDateStr != null ? DateTime.parse(endDateStr) : startDate;
             
-            // Format time for display (e.g. 14:30)
-            final timeStr = "${date.hour}:${date.minute.toString().padLeft(2, '0')}";
+            final timeStr = "${startDate.hour}:${startDate.minute.toString().padLeft(2, '0')}";
 
             final task = CalendarTask(
+              id: id, 
               title: title,
               time: timeStr,
               color: const Color(0xFFA8C69F),
               isCompleted: status == 'completed',
             );
 
-            if (loadedEvents[key] == null) {
-              loadedEvents[key] = [];
+            for (var day = _normalizeDate(startDate);
+                !day.isAfter(_normalizeDate(endDate));
+                day = day.add(const Duration(days: 1))) {
+              
+              if (loadedEvents[day] == null) {
+                loadedEvents[day] = [];
+              }
+              if (!loadedEvents[day]!.any((t) => t.id == task.id)) {
+                loadedEvents[day]!.add(task);
+              }
             }
-            loadedEvents[key]!.add(task);
           }
         }
 
         if (mounted) {
           setState(() {
             _events = loadedEvents;
-            _selectedEvents = _getEventsForDay(_selectedDay!);
+            if (_selectedDay != null) {
+              _selectedEvents = _getEventsForDay(_selectedDay!);
+            }
             _isLoading = false;
           });
         }
@@ -107,10 +111,32 @@ class _CalendarPageState extends State<CalendarPage> {
     return _events[_normalizeDate(day)] ?? [];
   }
 
+  Future<void> _handleTaskToggle(CalendarTask task) async {
+    setState(() {
+      task.isCompleted = !task.isCompleted;
+    });
+
+    if (task.id != null) {
+      try {
+        final newStatus = task.isCompleted ? 'completed' : 'pending';
+        await _automationsService.updateStatus(task.id!, newStatus);
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            task.isCompleted = !task.isCompleted;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to update task status')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.white, // Safe background color
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _loadAutomations,
@@ -136,7 +162,7 @@ class _CalendarPageState extends State<CalendarPage> {
         backgroundColor: const Color(0xFFA8C69F),
         onPressed: () async {
           await _showCreateTaskSheet(context);
-          _loadAutomations(); // Reload after creating
+          _loadAutomations(); // Reloads calendar after creating task
         },
         child: const Icon(Icons.add, color: Colors.white, size: 30),
       ),
@@ -163,32 +189,36 @@ class _CalendarPageState extends State<CalendarPage> {
         weekdayStyle: TextStyle(color: Colors.grey),
         weekendStyle: TextStyle(color: Colors.grey),
       ),
+      calendarStyle: const CalendarStyle(
+        // Default style for Today (Grey circle)
+        todayDecoration: BoxDecoration(
+          color: Color(0xFFEEEEEE), 
+          shape: BoxShape.circle,
+        ),
+        todayTextStyle: TextStyle(color: Colors.black),
+        // Default style for Selected Day (Green circle)
+        selectedDecoration: BoxDecoration(
+          color: Color(0xFFA8C69F), 
+          shape: BoxShape.circle,
+        ),
+      ),
       calendarBuilders: CalendarBuilders(
-        defaultBuilder: (context, day, focusedDay) => _buildDayItem(day, Colors.white),
-        outsideBuilder: (context, day, focusedDay) => _buildDayItem(day, Colors.white, opacity: 0.3),
-        todayBuilder: (context, day, focusedDay) => _buildDayItem(day, Colors.grey.shade200, isToday: true),
+        // Custom Marker Builder (The Dots)
         markerBuilder: (context, day, events) {
-          final normalizedDate = _normalizeDate(day);
-          return Stack(
-            alignment: Alignment.center,
-            children: [
-              if (_moodHistory.containsKey(normalizedDate))
-                _buildDayItem(day, _moodHistory[normalizedDate]!),
-              
-              if (events.isNotEmpty)
-                Positioned(
-                  bottom: 12,
-                  child: Container(
-                    width: 4,
-                    height: 4,
-                    decoration: const BoxDecoration(
-                      color: Colors.black,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
+          if (events.isNotEmpty) {
+            return Positioned(
+              bottom: 12,
+              child: Container(
+                width: 6, // Made slightly bigger for visibility
+                height: 6,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFA8C69F), // Green color to "light up"
+                  shape: BoxShape.circle,
                 ),
-            ],
-          );
+              ),
+            );
+          }
+          return null;
         },
       ),
       onDaySelected: (selectedDay, focusedDay) {
@@ -198,25 +228,6 @@ class _CalendarPageState extends State<CalendarPage> {
           _selectedEvents = _getEventsForDay(selectedDay);
         });
       },
-    );
-  }
-
-  Widget _buildDayItem(DateTime day, Color color, {double opacity = 1.0, bool isToday = false}) {
-    return Container(
-      margin: const EdgeInsets.all(6.0),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: color.withOpacity(opacity),
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.black.withOpacity(0.1)),
-      ),
-      child: Text(
-        '${day.day}',
-        style: TextStyle(
-          color: Colors.black,
-          fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-        ),
-      ),
     );
   }
 
@@ -230,7 +241,10 @@ class _CalendarPageState extends State<CalendarPage> {
         ),
         const SizedBox(height: 16),
         if (_isLoading)
-           const Center(child: CircularProgressIndicator())
+           const Center(child: Padding(
+             padding: EdgeInsets.all(20.0),
+             child: CircularProgressIndicator(color: Color(0xFFA8C69F)),
+           ))
         else if (_selectedEvents.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 20),
@@ -242,11 +256,7 @@ class _CalendarPageState extends State<CalendarPage> {
             subtitle: task.time,
             dotColor: task.color,
             isCompleted: task.isCompleted,
-            onToggle: (val) {
-              setState(() {
-                task.isCompleted = !task.isCompleted;
-                });
-            },
+            onToggle: (val) => _handleTaskToggle(task),
           )),
       ],
     );

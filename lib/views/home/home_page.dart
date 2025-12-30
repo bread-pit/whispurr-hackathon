@@ -18,40 +18,46 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  // ─────────────────────────────────────────────
+  // State Variables
+  // ─────────────────────────────────────────────
+  
+  // Calendar
   CalendarFormat _calendarFormat = CalendarFormat.week;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
+  // Data
   final Map<DateTime, List<CalendarTask>> _allTasks = {};
   final _automationsService = AutomationsService();
   List<CalendarTask> _selectedEvents = [];
+  
+  // Notes
+  Map<String, dynamic>? _recentNote; 
 
-  // Variable to store the user's name
-  String _userName = "Friend";
+  // Summary Card Stats
+  int _todaysTaskCount = 0;
+  double _todaysSleep = 0.0;
+  bool _isHappyMood = true;
 
   @override
   void initState() {
     super.initState();
     _selectedDay = _normalizeDate(DateTime.now());
-    _loadUserName(); // Fetch the name on init
-    _fetchTasks();
-  }
-
-  // Fetch user name from Supabase metadata
-  void _loadUserName() {
+    
+    // Only fetch data if user is logged in
     final user = SupabaseService.client.auth.currentUser;
     if (user != null) {
-      final metaName = user.userMetadata?['full_name'];
-      if (metaName != null && metaName.isNotEmpty) {
-        if (mounted) {
-          setState(() {
-            _userName = metaName;
-          });
-        }
-      }
+      _fetchTasks();
+      _fetchRecentNote();
     }
   }
 
+  // ─────────────────────────────────────────────
+  // Backend Logic
+  // ─────────────────────────────────────────────
+
+  // 1. Fetch Calendar Tasks & Calculate Summary
   Future<void> _fetchTasks() async {
     final user = SupabaseService.client.auth.currentUser;
     if (user == null) return;
@@ -63,6 +69,10 @@ class _HomePageState extends State<HomePage> {
 
       setState(() {
         _allTasks.clear();
+        int todayTotal = 0;
+        int todayCompleted = 0;
+        double calculatedSleep = 0.0;
+        final todayKey = _normalizeDate(DateTime.now());
 
         for (var item in data) {
           final payload = item['payload'] ?? {};
@@ -73,6 +83,7 @@ class _HomePageState extends State<HomePage> {
           if (dateStr != null) {
             final date = DateTime.parse(dateStr);
             final normalizedDate = _normalizeDate(date);
+            // Format time (e.g., 08:30)
             final timeStr = "${date.hour}:${date.minute.toString().padLeft(2, '0')}";
 
             final task = CalendarTask(
@@ -86,8 +97,26 @@ class _HomePageState extends State<HomePage> {
               _allTasks[normalizedDate] = [];
             }
             _allTasks[normalizedDate]!.add(task);
+
+            // Calculate "Today" stats
+            if (normalizedDate == todayKey) {
+              todayTotal++;
+              if (task.isCompleted) todayCompleted++;
+              
+              // Logic: If task title contains "sleep", use a dummy value (or real duration if you have it)
+              if (title.toLowerCase().contains("sleep")) {
+                  calculatedSleep = 8.0; 
+              }
+            }
           }
         }
+
+        // Update Summary State
+        _todaysTaskCount = todayTotal;
+        _todaysSleep = calculatedSleep;
+        _isHappyMood = todayTotal == 0 || (todayCompleted / todayTotal) >= 0.5;
+
+        // Refresh list
         _loadTasksForSelectedDay();
       });
     } catch (e) {
@@ -95,6 +124,35 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // 2. Fetch Most Recent Note from Supabase
+  Future<void> _fetchRecentNote() async {
+    final user = SupabaseService.client.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final response = await SupabaseService.client
+          .from('notes')
+          .select()
+          .eq('user_id', user.id)
+          .order('created_at', ascending: false) // Newest first
+          .limit(1)
+          .maybeSingle(); 
+
+      if (!mounted) return;
+
+      if (response != null) {
+        setState(() {
+          _recentNote = response;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching notes: $e");
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // Utilities
+  // ─────────────────────────────────────────────
   DateTime _normalizeDate(DateTime date) {
     return DateTime(date.year, date.month, date.day);
   }
@@ -106,8 +164,14 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  // ─────────────────────────────────────────────
+  // UI
+  // ─────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final user = SupabaseService.client.auth.currentUser;
+    final userName = user?.userMetadata?['first_name'] ?? 'Friend'; 
+
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -124,26 +188,33 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Header
                 Text(
-                  "Hello, $_userName!", // Dynamic name displayed here
+                  "Hello, $userName!",
                   style: context.textTheme.displayLarge,
                 ),
                 const SizedBox(height: 25),
+                
+                // CALENDAR
                 TableCalendar(
                   firstDay: DateTime.utc(2025, 1, 1),
                   lastDay: DateTime.utc(2030, 12, 31),
                   focusedDay: _focusedDay,
                   calendarFormat: _calendarFormat,
                   headerVisible: false,
+                  
+                  // Show dots for events
                   eventLoader: (day) {
                     return _allTasks[_normalizeDate(day)] ?? [];
                   },
+                  
                   selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
                   onDaySelected: (selectedDay, focusedDay) {
                     _selectedDay = _normalizeDate(selectedDay);
                     _focusedDay = focusedDay;
                     _loadTasksForSelectedDay();
                   },
+                  
                   calendarStyle: CalendarStyle(
                     todayDecoration: BoxDecoration(
                       color: AppColors.black.withOpacity(0.1),
@@ -153,8 +224,9 @@ class _HomePageState extends State<HomePage> {
                       color: AppColors.black,
                       shape: BoxShape.circle,
                     ),
+                    // Fixed Marker Decoration
                     markerDecoration: const BoxDecoration(
-                      color: AppColors.black,
+                      color: Color(0xFF000000), 
                       shape: BoxShape.circle,
                     ),
                     defaultTextStyle: const TextStyle(fontWeight: FontWeight.w500),
@@ -165,14 +237,26 @@ class _HomePageState extends State<HomePage> {
                     titleTextStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
+                
                 const SizedBox(height: 20),
-                const SummaryCard(),
+                
+                // SUMMARY CARD (Functional)
+                SummaryCard(
+                  taskCount: _todaysTaskCount,
+                  sleepHours: _todaysSleep, 
+                  isHappy: _isHappyMood,
+                ),
+                
                 const SizedBox(height: 32),
+                
+                // TASKS HEADER
                 const Text(
                   "Today's Tasks",
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
+                
+                // TASKS LIST
                 if (_selectedEvents.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 20),
@@ -202,7 +286,10 @@ class _HomePageState extends State<HomePage> {
                       );
                     },
                   ),
+                  
                 const SizedBox(height: 25),
+                
+                // RECENT NOTES HEADER
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -221,11 +308,22 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ],
                 ),
-                const NoteCard(
-                  title: "Hello",
-                  content: "Hello",
-                  date: "Date",
-                ),
+                
+                // RECENT NOTE CARD (Functional)
+                if (_recentNote != null)
+                  NoteCard(
+                    title: _recentNote!['title'] ?? 'No Title',
+                    content: _recentNote!['content'] ?? '',
+                    // Parse Supabase Timestamp to Date String
+                    date: _recentNote!['created_at'] != null 
+                        ? DateTime.parse(_recentNote!['created_at']).toString().split(' ')[0] 
+                        : 'Today',
+                  )
+                else
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10),
+                    child: Text("No notes yet.", style: TextStyle(color: Colors.grey)),
+                  ),
               ],
             ),
           ),

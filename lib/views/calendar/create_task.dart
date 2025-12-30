@@ -18,6 +18,15 @@ class _CreateTaskState extends State<CreateTask> {
   
   DateTime startDate = DateTime.now();
   DateTime endDate = DateTime.now();
+  String selectedRepeat = "Don't repeat";
+
+  final List<String> repeatOptions = [
+    "Don't repeat",
+    "Every day",
+    "Every week",
+    "Every month",
+    "Every year",
+  ];
 
   @override
   void dispose() {
@@ -32,6 +41,11 @@ class _CreateTaskState extends State<CreateTask> {
         const SnackBar(content: Text('Please enter a title')),
       );
       return;
+    }
+
+    // Ensure end date is not before start date
+    if (endDate.isBefore(DateTime(startDate.year, startDate.month, startDate.day))) {
+        endDate = startDate; 
     }
 
     setState(() => _isSaving = true);
@@ -64,7 +78,7 @@ class _CreateTaskState extends State<CreateTask> {
       debugPrint('Error saving task: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save task: $e')),
+          const SnackBar(content: Text('Failed to save task. Please try again.')),
         );
       }
     } finally {
@@ -73,16 +87,6 @@ class _CreateTaskState extends State<CreateTask> {
       }
     }
   }
-
-  // State for the repeat selection
-  String selectedRepeat = "Don't repeat";
-  final List<String> repeatOptions = [
-    "Don't repeat",
-    "Every day",
-    "Every week",
-    "Every month",
-    "Every year",
-  ];
 
   Future<void> _selectDate(BuildContext context, bool isStartDate) async {
     final DateTime? picked = await showDatePicker(
@@ -108,6 +112,9 @@ class _CreateTaskState extends State<CreateTask> {
       setState(() {
         if (isStartDate) {
           startDate = picked;
+          if (startDate.isAfter(endDate)) {
+            endDate = startDate;
+          }
         } else {
           endDate = picked;
         }
@@ -115,7 +122,6 @@ class _CreateTaskState extends State<CreateTask> {
     }
   }
 
-  // Opens a simple dialog to select the repeat frequency
   void _showRepeatPicker() {
     showModalBottomSheet(
       context: context,

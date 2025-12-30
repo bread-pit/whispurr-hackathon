@@ -39,7 +39,7 @@ class _SignupPageState extends State<SignupPage> {
       // HACKATHON SHORTCUT: Auto-generating email based on name to fit existing UI
       // In a real app, you should add an Email and Password text field.
       final cleanName = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-      final email = '$cleanName${DateTime.now().millisecond}@whispurr.test'; 
+      final email = '$cleanName${DateTime.now().millisecond}@whispurr.com'; 
       const password = 'ChangeMe123!'; // Default password for this flow
 
       // 1. Create User in Supabase
