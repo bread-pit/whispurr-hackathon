@@ -55,7 +55,7 @@ class _HomePageState extends State<HomePage> {
       _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
         if (mounted) {
           _fetchTasks();
-          _fetchRecentNote(); // This ensures the new note appears automatically
+          _fetchRecentNote(); 
         }
       });
     }
@@ -83,13 +83,12 @@ class _HomePageState extends State<HomePage> {
     if (user == null) return;
 
     try {
-      // Queries the 'notes' table for the newest entry
       final response = await SupabaseService.client
           .from('notes')
           .select()
           .eq('user_id', user.id)
-          .order('created_at', ascending: false) // Newest first
-          .limit(1) // Get only one
+          .order('created_at', ascending: false)
+          .limit(1) 
           .maybeSingle();
 
       if (!mounted) return;
