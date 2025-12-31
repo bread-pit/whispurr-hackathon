@@ -26,7 +26,6 @@ class _NotesPageState extends State<NotesPage> {
     _loadNotes();
   }
 
-  // Load Notes from Supabase
   Future<void> _loadNotes() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
@@ -175,7 +174,7 @@ class _NotesPageState extends State<NotesPage> {
             context,
             MaterialPageRoute(builder: (context) => const NoteTake()),
           );
-          _loadNotes(); // Reload list after returning from NoteTake
+          _loadNotes();
         },
         backgroundColor: context.mood.happy,
         shape: const CircleBorder(side: BorderSide(color: Colors.black12, width: 0.5)),

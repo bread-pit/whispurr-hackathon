@@ -14,7 +14,7 @@ class NoteTake extends StatefulWidget {
 class _NoteTakeState extends State<NoteTake> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
-  final _notesService = NotesService(); // UPDATED SERVICE
+  final _notesService = NotesService(); 
   bool _isSaving = false;
 
   @override
@@ -41,7 +41,6 @@ class _NoteTakeState extends State<NoteTake> {
       final user = SupabaseService.client.auth.currentUser;
       
       if (user != null) {
-        // Use the new NotesService
         await _notesService.createNote(
           userId: user.id,
           title: _titleController.text.isNotEmpty ? _titleController.text : 'Untitled Note',
