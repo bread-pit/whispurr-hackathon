@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:whispurr_hackathon/core/services/logs_service.dart';
+import 'package:whispurr_hackathon/core/services/notes_service.dart'; // UPDATED IMPORT
 import 'package:whispurr_hackathon/core/services/supabase_service.dart';
 import 'package:intl/intl.dart';
 import '../../theme.dart';
@@ -14,7 +14,7 @@ class NoteTake extends StatefulWidget {
 class _NoteTakeState extends State<NoteTake> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
-  final _logsService = LogsService();
+  final _notesService = NotesService(); // UPDATED SERVICE
   bool _isSaving = false;
 
   @override
@@ -25,11 +25,10 @@ class _NoteTakeState extends State<NoteTake> {
   }
 
   Future<void> _saveNote() async {
-    // 1. Check if content is empty
     if (_contentController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please write some content in the main text area.'),
+          content: Text('Please write some content first.'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -41,11 +40,11 @@ class _NoteTakeState extends State<NoteTake> {
     try {
       final user = SupabaseService.client.auth.currentUser;
       
-      // 2. Check if user is logged in
       if (user != null) {
-        await _logsService.createLog(
+        // Use the new NotesService
+        await _notesService.createNote(
           userId: user.id,
-          mood: _titleController.text.isNotEmpty ? _titleController.text : 'Untitled Note',
+          title: _titleController.text.isNotEmpty ? _titleController.text : 'Untitled Note',
           content: _contentController.text,
         );
         
@@ -58,23 +57,15 @@ class _NoteTakeState extends State<NoteTake> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Error: You are not logged in. Please restart the app.'),
-              backgroundColor: Colors.red,
-            ),
+            const SnackBar(content: Text('Error: Not logged in.')),
           );
         }
       }
     } catch (e) {
       debugPrint('Error saving note: $e');
       if (mounted) {
-        // 3. Display the actual error from Supabase
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Database Error: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
+          SnackBar(content: Text('Error saving: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -101,8 +92,7 @@ class _NoteTakeState extends State<NoteTake> {
             onPressed: _isSaving ? null : _saveNote,
             child: _isSaving
                 ? const SizedBox(
-                    height: 20,
-                    width: 20,
+                    height: 20, width: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : Text(
@@ -156,12 +146,12 @@ class _NoteTakeState extends State<NoteTake> {
               height: 32,
             ),
 
-            // Note Content Input
+            // Content Input
             TextField(
               controller: _contentController,
               style: context.textTheme.bodyLarge,
               decoration: InputDecoration(
-                hintText: 'Start writing here...', // Added clearer hint
+                hintText: 'Start writing here...',
                 hintStyle: context.textTheme.bodyLarge?.copyWith(
                   color: AppColors.black.withOpacity(0.3),
                 ),

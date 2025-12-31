@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:whispurr_hackathon/theme.dart';
 import 'package:whispurr_hackathon/core/widgets/note_card.dart';
 import 'package:whispurr_hackathon/views/notes/note_take.dart';
-import 'package:whispurr_hackathon/core/services/logs_service.dart';
+import 'package:whispurr_hackathon/core/services/notes_service.dart'; // UPDATED IMPORT
 import 'package:whispurr_hackathon/core/services/supabase_service.dart';
 import 'package:intl/intl.dart';
 
@@ -14,23 +14,20 @@ class NotesPage extends StatefulWidget {
 }
 
 class _NotesPageState extends State<NotesPage> {
-  final _logsService = LogsService();
+  final _notesService = NotesService(); // UPDATED SERVICE
 
-  List<Map<String, dynamic>> _logs = [];
+  List<Map<String, dynamic>> _notes = [];
   bool _isLoading = true;
-
-  /// true = newest first
   bool _sortDescending = true;
 
   @override
   void initState() {
     super.initState();
-    _loadLogs();
+    _loadNotes();
   }
 
-
-  // Backend Logic
-  Future<void> _loadLogs() async {
+  // Load Notes from Supabase
+  Future<void> _loadNotes() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
 
@@ -41,10 +38,10 @@ class _NotesPageState extends State<NotesPage> {
         return;
       }
 
-      final logs = await _logsService.getLogs(user.id);
+      final notes = await _notesService.getNotes(user.id);
 
-      // Defensive sort (backend-safe)
-      logs.sort((a, b) {
+      // Sort logic
+      notes.sort((a, b) {
         final aDate = DateTime.tryParse(a['created_at'] ?? '') ?? DateTime(1970);
         final bDate = DateTime.tryParse(b['created_at'] ?? '') ?? DateTime(1970);
         return _sortDescending
@@ -54,12 +51,11 @@ class _NotesPageState extends State<NotesPage> {
 
       if (!mounted) return;
       setState(() {
-        _logs = logs;
+        _notes = notes;
         _isLoading = false;
       });
-    } catch (e, stack) {
-      debugPrint('Error loading logs: $e');
-      debugPrintStack(stackTrace: stack);
+    } catch (e) {
+      debugPrint('Error loading notes: $e');
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -68,7 +64,7 @@ class _NotesPageState extends State<NotesPage> {
     setState(() {
       _sortDescending = !_sortDescending;
     });
-    _loadLogs();
+    _loadNotes();
   }
 
   String _formatDate(String? dateStr) {
@@ -81,9 +77,6 @@ class _NotesPageState extends State<NotesPage> {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // UI
-  // ─────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -97,81 +90,84 @@ class _NotesPageState extends State<NotesPage> {
           ),
         ),
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 20.0),
-            child: Column(
-              children: [
-                Text(
-                  'All Notes',
-                  style: context.textTheme.displayLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
+          child: RefreshIndicator(
+            onRefresh: _loadNotes,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 20.0),
+              physics: const AlwaysScrollableScrollPhysics(), // Important for RefreshIndicator
+              child: Column(
+                children: [
+                  Text(
+                    'All Notes',
+                    style: context.textTheme.displayLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
 
-                const SizedBox(height: 30),
+                  const SizedBox(height: 30),
 
-                // Top controls Row
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    InkWell(
-                      onTap: _toggleSort,
-                      borderRadius: BorderRadius.circular(8),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.menu_rounded,
-                              size: 18, color: AppColors.black),
-                          const SizedBox(width: 4),
-                          Text('Date', style: context.textTheme.bodySmall),
-                        ],
+                  // Controls Row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      InkWell(
+                        onTap: _toggleSort,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.menu_rounded, size: 18, color: AppColors.black),
+                            const SizedBox(width: 4),
+                            Text('Date', style: context.textTheme.bodySmall),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        height: 12, width: 1,
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
+                        color: AppColors.black.withOpacity(0.3),
+                      ),
+                      Icon(
+                        _sortDescending ? Icons.arrow_downward : Icons.arrow_upward,
+                        size: 18, color: AppColors.black,
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  // Notes List
+                  if (_isLoading)
+                    const Center(child: Padding(
+                      padding: EdgeInsets.all(20.0),
+                      child: CircularProgressIndicator(),
+                    ))
+                  else if (_notes.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(20.0),
+                      child: Text(
+                        'No notes yet. Start writing!',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )
+                  else
+                    ..._notes.map(
+                      (note) => NoteCard(
+                        title: note['title'] ?? 'Untitled',
+                        content: note['content'] ?? '',
+                        date: _formatDate(note['created_at']),
                       ),
                     ),
-
-                    Container(
-                      height: 12,
-                      width: 1,
-                      margin: const EdgeInsets.symmetric(horizontal: 8),
-                      color: AppColors.black.withOpacity(0.3),
-                    ),
-
-                    Icon(
-                      _sortDescending
-                          ? Icons.arrow_downward
-                          : Icons.arrow_upward,
-                      size: 18,
-                      color: AppColors.black,
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 30),
-
-                // Notes list
-                if (_isLoading)
-                  const Center(child: CircularProgressIndicator())
-                else if (_logs.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(20.0),
-                    child: Text(
-                      'No notes yet. Start writing!',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  )
-                else
-                  ..._logs.map(
-                    (log) => NoteCard(
-                      title: log['mood'] ?? 'Note',
-                      content: log['content'] ?? '',
-                      date: _formatDate(log['created_at']),
-                    ),
-                  ),
-              ],
+                  
+                  // Extra space at bottom so FAB doesn't cover last item
+                  const SizedBox(height: 80), 
+                ],
+              ),
             ),
           ),
         ),
       ),
 
-      // FAB
+      // Floating Action Button
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
@@ -179,21 +175,12 @@ class _NotesPageState extends State<NotesPage> {
             context,
             MaterialPageRoute(builder: (context) => const NoteTake()),
           );
-          _loadLogs();
+          _loadNotes(); // Reload list after returning from NoteTake
         },
         backgroundColor: context.mood.happy,
-        shape: CircleBorder(
-          side: BorderSide(
-            color: AppColors.black.withValues(alpha: 0.5),
-            width: 0.5,
-          ),
-        ),
+        shape: const CircleBorder(side: BorderSide(color: Colors.black12, width: 0.5)),
         elevation: 2,
-        child: const Icon(
-          Icons.edit,
-          color: Colors.white,
-          size: 24,
-        ),
+        child: const Icon(Icons.edit, color: Colors.white, size: 24),
       ),
     );
   }

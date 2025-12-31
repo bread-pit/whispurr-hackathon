@@ -1,6 +1,6 @@
-import 'dart:async';
+import 'dart:async'; // Required for Auto-Refresh
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // Needed for date formatting
+import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:whispurr_hackathon/core/services/automations_service.dart';
 import 'package:whispurr_hackathon/core/services/supabase_service.dart';
@@ -23,7 +23,7 @@ class _HomePageState extends State<HomePage> {
   // Calendar State
   CalendarFormat _calendarFormat = CalendarFormat.week;
   DateTime _focusedDay = DateTime.now();
-  DateTime _selectedDay = DateTime.now(); // Default to now immediately
+  DateTime _selectedDay = DateTime.now(); 
 
   // Data State
   final Map<DateTime, List<CalendarTask>> _allTasks = {};
@@ -38,6 +38,7 @@ class _HomePageState extends State<HomePage> {
   double _todaysSleep = 0.0;
   bool _isHappyMood = true;
   
+  // Timer for Auto-Refresh
   Timer? _refreshTimer;
 
   @override
@@ -50,9 +51,12 @@ class _HomePageState extends State<HomePage> {
       _fetchTasks();
       _fetchRecentNote();
       
-      // Auto-refresh every 5 seconds to catch new tasks
+      // AUTO-REFRESH: Runs every 5 seconds to catch new notes and tasks
       _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-        if (mounted) _fetchTasks();
+        if (mounted) {
+          _fetchTasks();
+          _fetchRecentNote(); // This ensures the new note appears automatically
+        }
       });
     }
   }
@@ -73,6 +77,32 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // --- FETCH RECENT NOTE ---
+  Future<void> _fetchRecentNote() async {
+    final user = SupabaseService.client.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      // Queries the 'notes' table for the newest entry
+      final response = await SupabaseService.client
+          .from('notes')
+          .select()
+          .eq('user_id', user.id)
+          .order('created_at', ascending: false) // Newest first
+          .limit(1) // Get only one
+          .maybeSingle();
+
+      if (!mounted) return;
+
+      setState(() {
+        _recentNote = response;
+      });
+    } catch (e) {
+       debugPrint("Error fetching recent note: $e");
+    }
+  }
+
+  // --- FETCH TASKS ---
   Future<void> _fetchTasks() async {
     final user = SupabaseService.client.auth.currentUser;
     if (user == null) return;
@@ -133,30 +163,11 @@ class _HomePageState extends State<HomePage> {
         _todaysSleep = calculatedSleep;
         _isHappyMood = todayTotal == 0 || (todayCompleted / todayTotal) >= 0.5;
 
-        // Force update the list for the currently selected day
         _loadTasksForSelectedDay();
       });
     } catch (e) {
       debugPrint("Error fetching home tasks: $e");
     }
-  }
-
-  Future<void> _fetchRecentNote() async {
-    final user = SupabaseService.client.auth.currentUser;
-    if (user == null) return;
-    try {
-      final response = await SupabaseService.client
-          .from('notes')
-          .select()
-          .eq('user_id', user.id)
-          .order('created_at', ascending: false)
-          .limit(1)
-          .maybeSingle();
-      if (!mounted) return;
-      if (response != null) {
-        setState(() => _recentNote = response);
-      }
-    } catch (e) {}
   }
 
   DateTime _normalizeDate(DateTime date) {
@@ -185,9 +196,8 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final user = SupabaseService.client.auth.currentUser;
-    final userName = user?.userMetadata?['first_name'] ?? 'Friend'; 
+    final userName = user?.userMetadata?['full_name'] ?? 'Friend'; 
     
-    // Create a dynamic header based on selected day
     final bool isToday = isSameDay(_selectedDay, DateTime.now());
     final String listHeader = isToday 
         ? "Today's Tasks" 
@@ -225,7 +235,6 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 25),
                   
-                  // CALENDAR STRIP
                   TableCalendar(
                     firstDay: DateTime.utc(2025, 1, 1),
                     lastDay: DateTime.utc(2030, 12, 31),
@@ -238,7 +247,7 @@ class _HomePageState extends State<HomePage> {
                       setState(() {
                         _selectedDay = _normalizeDate(selectedDay);
                         _focusedDay = focusedDay;
-                        _loadTasksForSelectedDay(); // This updates the list below!
+                        _loadTasksForSelectedDay(); 
                       });
                     },
                     calendarStyle: CalendarStyle(
@@ -267,9 +276,8 @@ class _HomePageState extends State<HomePage> {
                   
                   const SizedBox(height: 32),
                   
-                  // DYNAMIC HEADER
                   Text(
-                    listHeader, // Shows "Tasks for Dec 31" etc.
+                    listHeader,
                     style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
@@ -313,12 +321,13 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                   
+                  // DISPLAY RECENT NOTE HERE
                   if (_recentNote != null)
                     NoteCard(
                       title: _recentNote!['title'] ?? 'No Title',
                       content: _recentNote!['content'] ?? '',
                       date: _recentNote!['created_at'] != null 
-                          ? DateTime.parse(_recentNote!['created_at']).toString().split(' ')[0] 
+                          ? DateFormat('MMM dd').format(DateTime.parse(_recentNote!['created_at']))
                           : 'Today',
                     )
                   else
