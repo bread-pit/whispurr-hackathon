@@ -49,7 +49,11 @@ class _NoteTakeState extends State<NoteTake> {
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Note Saved!'), backgroundColor: Colors.green),
+            const SnackBar(
+              content: Text('Note Saved!'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+            ),
           );
           Navigator.pop(context);
         }

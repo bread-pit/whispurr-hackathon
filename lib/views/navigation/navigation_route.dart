@@ -33,23 +33,28 @@ class _NavigateRouteState extends State<NavigateRoute> {
 
   @override
   Widget build(BuildContext context) {
+    bool isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom != 0.0;
     return Scaffold(
       backgroundColor: Colors.white,
+      resizeToAvoidBottomInset: false,
       body: IndexedStack(
         index: _currentIndex,
         children: _pages,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: Padding(
-        // Increase the top padding to push the button down
+      floatingActionButton: (isKeyboardOpen)
+          ? null
+          : Padding(
         padding: const EdgeInsets.only(top: 30),
         child: FabNav(
           onPressed: () => _onTabTapped(4),
         ),
       ),
-      bottomNavigationBar: MainNavigation(
-        currentIndex: _currentIndex,
-        onTabSelected: _onTabTapped,
+      bottomNavigationBar: (isKeyboardOpen)
+        ? null
+        :MainNavigation(
+          currentIndex: _currentIndex,
+          onTabSelected: _onTabTapped
       ),
     );
   }
