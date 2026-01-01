@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:whispurr_hackathon/theme.dart';
+import 'package:whispurr_hackathon/core/services/logs_service.dart';
+import 'package:whispurr_hackathon/core/services/supabase_service.dart';
 
 class MoodPage extends StatefulWidget {
   const MoodPage({super.key});
@@ -9,11 +11,11 @@ class MoodPage extends StatefulWidget {
 }
 
 class _MoodPageState extends State<MoodPage> {
-  // Track the currently selected mood.
-  // Options: 'happy', 'okay', 'sad', 'awful'
   String? selectedMood;
+  final _thoughtController = TextEditingController();
+  final _logsService = LogsService();
+  bool _isSavingNote = false;
 
-  // Define your mood data
   final List<Map<String, dynamic>> moods = [
     {'id': 'happy', 'label': 'Happy', 'image': 'assets/images/happy.png'},
     {'id': 'okay', 'label': 'Okay', 'image': 'assets/images/neutral.png'},
@@ -21,116 +23,105 @@ class _MoodPageState extends State<MoodPage> {
     {'id': 'awful', 'label': 'Awful', 'image': 'assets/images/angry.png'},
   ];
 
-  // Helper to get color based on context.mood (from your theme)
+  @override
+  void dispose() {
+    _thoughtController.dispose();
+    super.dispose();
+  }
+
   Color getMoodColor(String id, BuildContext context) {
     switch (id) {
-      case 'happy': return context.mood.happy ?? Colors.transparent;
-      case 'okay': return context.mood.okay ?? Colors.transparent;
-      case 'sad': return context.mood.sad ?? Colors.transparent;
-      case 'awful': return context.mood.awful ?? Colors.transparent;
+      case 'happy': return context.mood.happy ?? const Color(0xFFA8C69F);
+      case 'okay': return context.mood.okay ?? const Color(0xFFB5C7E6);
+      case 'sad': return context.mood.sad ?? const Color(0xFFF7D486);
+      case 'awful': return context.mood.awful ?? const Color(0xFFE5A5A5);
       default: return Colors.white;
     }
   }
 
+  Future<void> _onMoodTap(String moodId) async {
+    setState(() => selectedMood = moodId);
+    try {
+      final user = SupabaseService.client.auth.currentUser;
+      if (user != null) {
+        await _logsService.createLog(userId: user.id, mood: moodId, content: '');
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mood saved!'), duration: Duration(milliseconds: 500), backgroundColor: Colors.green));
+      }
+    } catch (e) { debugPrint("Error: $e"); }
+  }
+
+  Future<void> _saveNote() async {
+    if (_thoughtController.text.isEmpty) return;
+    setState(() => _isSavingNote = true);
+    try {
+      final user = SupabaseService.client.auth.currentUser;
+      if (user != null) {
+        await _logsService.createLog(userId: user.id, mood: selectedMood ?? 'neutral', content: _thoughtController.text.trim());
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Note saved!')));
+          _thoughtController.clear();
+        }
+      }
+    } catch (e) { debugPrint("Error: $e"); } 
+    finally { if (mounted) setState(() => _isSavingNote = false); }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 24),
-        Text(
-          "What’s your mood today?",
-          style: context.textTheme.displaySmall?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        // 2x2 Grid
-        GridView.builder(
-          shrinkWrap: true, // Important inside SingleChildScrollView
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.0, // Makes them square
-          ),
-          itemCount: moods.length,
-          itemBuilder: (context, index) {
-            final mood = moods[index];
-            final isSelected = selectedMood == mood['id'];
-
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  selectedMood = mood['id'];
-                });
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                decoration: BoxDecoration(
-                  // Background changes if selected, otherwise white
-                  color: isSelected ? getMoodColor(mood['id'], context) : Colors.white,
-                  borderRadius: BorderRadius.circular(40),
-                  border: Border.all(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    width: 1,
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 24),
+          Text("What’s your mood today?", style: context.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 24),
+          GridView.builder(
+            shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: 1.0),
+            itemCount: moods.length,
+            itemBuilder: (context, index) {
+              final mood = moods[index];
+              final isSelected = selectedMood == mood['id'];
+              return GestureDetector(
+                onTap: () => _onMoodTap(mood['id']),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  decoration: BoxDecoration(
+                    color: isSelected ? getMoodColor(mood['id'], context) : Colors.white,
+                    borderRadius: BorderRadius.circular(40),
+                    border: Border.all(color: Colors.black.withOpacity(0.1), width: 1),
+                    boxShadow: isSelected ? [BoxShadow(color: getMoodColor(mood['id'], context).withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 4))] : [],
                   ),
-                  boxShadow: isSelected ? [
-                    BoxShadow(
-                      color: getMoodColor(mood['id'], context).withValues(alpha: 0.4),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    )
-                  ] : [],
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Image.asset(mood['image'], height: 150)]),
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Image.asset(mood['image'], height: 150),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-
-        const SizedBox(height: 24),
-
-        Text(
-          "Express yourself",
-          style: context.textTheme.displaySmall?.copyWith(
-            fontWeight: FontWeight.w700,
+              );
+            },
           ),
-        ),
-
-        const SizedBox(height: 24),
-
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(25.0),
-            border: Border.all(
-              color: Colors.black.withValues(alpha: 0.5),
-              width: 0.5,
+          const SizedBox(height: 24),
+          Text("Express yourself", style: context.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 24),
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25.0), border: Border.all(color: Colors.black.withOpacity(0.5), width: 0.5)),
+            child: Stack(
+              children: [
+                TextField(
+                  controller: _thoughtController, maxLines: 5, style: context.textTheme.bodyMedium,
+                  decoration: InputDecoration(hintText: "Write your thoughts...", hintStyle: context.textTheme.bodyMedium?.copyWith(color: Colors.black.withOpacity(0.3)), contentPadding: const EdgeInsets.all(16.0), border: InputBorder.none),
+                ),
+                Positioned(
+                  bottom: 8, right: 8,
+                  child: IconButton(
+                    onPressed: _isSavingNote ? null : _saveNote,
+                    icon: _isSavingNote ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send, color: Color(0xff628141)),
+                  ),
+                ),
+              ],
             ),
           ),
-          child: TextField(
-            maxLines: 5,
-            style: context.textTheme.bodyMedium,
-            decoration: InputDecoration(
-              hintText: "Write your thoughts...",
-              hintStyle: context.textTheme.bodyMedium?.copyWith(
-                color: Colors.black.withValues(alpha: 0.3),
-              ),
-              contentPadding: const EdgeInsets.all(16.0),
-              border: InputBorder.none,
-            ),
-          ),
-        ),
-      ],
+          const SizedBox(height: 40),
+        ],
+      ),
     );
   }
 }

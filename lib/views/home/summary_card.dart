@@ -1,178 +1,136 @@
-import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
-import 'package:whispurr_hackathon/theme.dart';
+import '../../theme.dart';
 
 class SummaryCard extends StatelessWidget {
   final int taskCount;
   final double sleepHours;
-  final bool isHappy;
+  final String? currentMood;
 
   const SummaryCard({
     super.key,
     required this.taskCount,
     required this.sleepHours,
-    required this.isHappy,
+    this.currentMood,
   });
 
   @override
   Widget build(BuildContext context) {
-    final cardBorder = Border.all(
-      color: AppColors.black.withValues(alpha: 0.5),
-      width: 0.5,
-    );
+    String imagePath;
+    String message;
+    
+    // Default/Fallback
+    imagePath = 'assets/images/happy.png';
+    message = "Whispurr smiles with\nyou today.";
 
-    final moodImage = isHappy ? "assets/images/happy.png" : "assets/images/happy.png"; // Replace with neutral if available
-    final moodText = isHappy ? "Whispurr smiles with you today." : "Whispurr is cheering for you!";
-    final mainColor = isHappy ? context.mood.happy : (context.mood.happy?.withOpacity(0.7)); 
+    if (currentMood == 'happy') {
+      imagePath = 'assets/images/happy.png';
+      message = "Whispurr smiles with\nyou today.";
+    } else if (currentMood == 'okay') {
+      imagePath = 'assets/images/neutral.png';
+      message = "Whispurr is chill\nwith you today.";
+    } else if (currentMood == 'sad') {
+      imagePath = 'assets/images/sad.png';
+      message = "Whispurr is here\nfor you.";
+    } else if (currentMood == 'awful') {
+      imagePath = 'assets/images/angry.png';
+      message = "Whispurr understands\nit's a tough day.";
+    }
 
     return Row(
       children: [
-        // Mood Card
         Expanded(
-          flex: 2,
+          flex: 3,
           child: Container(
-            height: 225,
-            decoration: BoxDecoration(
-              color: mainColor,
-              borderRadius: BorderRadius.circular(35.0),
-              border: cardBorder,
-            ),
+            height: 180,
             padding: const EdgeInsets.all(16),
-            child: DottedBorder(
-              options: const RoundedRectDottedBorderOptions(
-                dashPattern: [5, 5],
-                radius: Radius.circular(16),
-                color: Colors.white,
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(25.0),
-                      child: Image.asset(
-                        moodImage,
-                        fit: BoxFit.cover,
-                        height: 130,
-                        width: 130,
-                        errorBuilder: (context, error, stackTrace) {
-                           return const Icon(Icons.sentiment_satisfied, size: 80, color: Colors.white);
-                        },
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        moodText,
-                        textAlign: TextAlign.center,
-                        style: context.textTheme.bodySmall?.copyWith(
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
+            decoration: BoxDecoration(
+              color: const Color(0xff9FBfa2).withOpacity(0.8), // Green tint background
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(color: Colors.white.withOpacity(0.3)),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset(
+                  imagePath,
+                  height: 80,
+                  fit: BoxFit.contain,
                 ),
-              ),
+                const SizedBox(height: 12),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
-        const SizedBox(width: 25),
+        const SizedBox(width: 16),
         
-        // Stats Column
+        // RIGHT COLUMN (Sleep & Tasks)
         Expanded(
-          flex: 1,
+          flex: 2,
           child: Column(
             children: [
-              // Sleep Data
+              // SLEEP CARD
               Container(
-                height: 100,
-                width: double.infinity,
+                height: 82,
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: mainColor?.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(25.0),
-                  border: cardBorder,
+                  color: const Color(0xffD6E6CE),
+                  borderRadius: BorderRadius.circular(24),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Align(
-                        alignment: Alignment.topLeft,
-                        child: Image.asset(
-                          "assets/images/sleep.png",
-                          height: 21,
-                          width: 21,
-                        ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.nights_stay, size: 16),
+                      ],
+                    ),
+                    Text(
+                      sleepHours.toStringAsFixed(1),
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            sleepHours.toStringAsFixed(1),
-                            style: context.textTheme.displayLarge?.copyWith(
-                              fontSize: 36,
-                            ),
-                            textAlign: TextAlign.right,
-                          ),
-                          const Align(
-                            alignment: Alignment.centerRight,
-                            child: Text(
-                              "hrs of sleep",
-                              style: TextStyle(fontSize: 10),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                    ),
+                    const Text("hrs of sleep", style: TextStyle(fontSize: 10)),
+                  ],
                 ),
               ),
-              const SizedBox(height: 25),
+              const SizedBox(height: 16),
               
-              // Task Count Data
+              // TASKS CARD
               Container(
-                height: 100,
-                width: double.infinity,
+                height: 82,
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: mainColor?.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(25.0),
-                  border: cardBorder,
+                  color: const Color(0xffD6E6CE),
+                  borderRadius: BorderRadius.circular(24),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Align(
-                        alignment: Alignment.topLeft,
-                        child: Image.asset(
-                          "assets/images/tasks.png",
-                          height: 21,
-                          width: 21,
-                        ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.check_circle_outline, size: 16),
+                      ],
+                    ),
+                    Text(
+                      taskCount.toString(),
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            "$taskCount",
-                            style: context.textTheme.displayLarge?.copyWith(
-                              fontSize: 36,
-                            ),
-                            textAlign: TextAlign.right,
-                          ),
-                          const Align(
-                            alignment: Alignment.centerRight,
-                            child: Text(
-                              "tasks",
-                              style: TextStyle(fontSize: 10),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                    ),
+                    const Text("tasks", style: TextStyle(fontSize: 10)),
+                  ],
                 ),
               ),
             ],

@@ -18,7 +18,7 @@ class AutomationsService {
     }
   }
 
-Future<bool> createAutomation({
+  Future<bool> createAutomation({
     required String userId,
     required String title,
     String status = 'pending',
@@ -38,24 +38,7 @@ Future<bool> createAutomation({
     }
   }
 
-  // Existing method (keep this if you use it elsewhere)
-  Future<bool> updateAutomationStatus({
-    required String automationId,
-    required String status,
-  }) async {
-    try {
-      await _supabase
-          .from('automations')
-          .update({'status': status})
-          .eq('id', automationId);
-      return true;
-    } catch (e) {
-      debugPrint('Error updating automation: $e');
-      return false;
-    }
-  }
-
-Future<void> updateStatus(String id, String status) async {
+  Future<void> updateStatus(String id, String status) async {
     try {
       await _supabase
           .from('automations')
