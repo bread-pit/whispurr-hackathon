@@ -44,8 +44,6 @@ class _HomePageState extends State<HomePage> {
     final user = SupabaseService.client.auth.currentUser;
     if (user != null) {
       _fetchData();
-      
-      // Listen for database changes
       _subscription = SupabaseService.client.channel('public:home_updates')
           .onPostgresChanges(
             event: PostgresChangeEvent.all,
@@ -118,8 +116,8 @@ class _HomePageState extends State<HomePage> {
 
         Color c = Colors.transparent;
         if (moodKey == 'happy') c = const Color(0xFFA8C69F);
-        else if (moodKey == 'okay') c = const Color(0xFFB5C7E6);
-        else if (moodKey == 'sad') c = const Color(0xFFF7D486);
+        else if (moodKey == 'okay') c = const Color(0xFFF7D486);
+        else if (moodKey == 'sad') c = const Color(0xFFB5C7E6);
         else if (moodKey == 'awful') c = const Color(0xFFE5A5A5);
         
         if (!tempMoodMap.containsKey(normalizedDate)) {
@@ -139,7 +137,9 @@ class _HomePageState extends State<HomePage> {
           _todaysSleep = foundSleepToday ?? 0.0;
         });
       }
-    } catch (e) {}
+    } catch (e) {
+      debugPrint("Error fetching logs: $e");
+    }
   }
 
   Future<void> _fetchRecentNote(String userId) async {
@@ -234,7 +234,6 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // PASSING CORRECT STATE VARIABLES
                   SummaryCard(taskCount: _todaysTaskCount, sleepHours: _todaysSleep, currentMood: _currentMood),
                   const SizedBox(height: 32),
                   Text(listHeader, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),

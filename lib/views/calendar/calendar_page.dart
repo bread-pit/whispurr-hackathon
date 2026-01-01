@@ -31,7 +31,6 @@ class _CalendarPageState extends State<CalendarPage> {
     super.initState();
     _selectedDay = _normalizeDate(DateTime.now());
     _loadData();
-    
     _subscription = SupabaseService.client.channel('public:db_changes')
         .onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public', callback: (payload) => _loadData())
         .subscribe();
@@ -48,7 +47,6 @@ class _CalendarPageState extends State<CalendarPage> {
   Future<void> _loadData() async {
     if (!mounted) return;
     if (_events.isEmpty) setState(() => _isLoading = true);
-    
     final user = SupabaseService.client.auth.currentUser;
     if (user != null) await Future.wait([_loadTasks(user.id), _loadMoods(user.id)]);
     if (mounted) setState(() => _isLoading = false);
@@ -62,9 +60,10 @@ class _CalendarPageState extends State<CalendarPage> {
         final date = DateTime.parse(log['created_at']);
         final mood = log['mood'] as String?;
         Color c = Colors.transparent;
+        // SWAPPED COLORS HERE
         if (mood == 'happy') c = const Color(0xFFA8C69F);
-        else if (mood == 'okay') c = const Color(0xFFB5C7E6);
-        else if (mood == 'sad') c = const Color(0xFFF7D486);
+        else if (mood == 'okay') c = const Color(0xFFF7D486); // Yellow
+        else if (mood == 'sad') c = const Color(0xFFB5C7E6); // Blue
         else if (mood == 'awful') c = const Color(0xFFE5A5A5);
         newMap[_normalizeDate(date)] = c;
       }
@@ -122,22 +121,16 @@ class _CalendarPageState extends State<CalendarPage> {
           child: Column(
             children: [
               const SizedBox(height: 20),
-              TableCalendar<CalendarTask>(
+              TableCalendar(
                 firstDay: DateTime.utc(2020, 1, 1), lastDay: DateTime.utc(2030, 12, 31), focusedDay: _focusedDay, calendarFormat: _calendarFormat,
-                selectedDayPredicate: (day) => isSameDay(_selectedDay, day), 
-                eventLoader: _getEventsForDay,
+                selectedDayPredicate: (day) => isSameDay(_selectedDay, day), eventLoader: _getEventsForDay,
                 headerStyle: const HeaderStyle(formatButtonVisible: false, titleCentered: true, titleTextStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 calendarStyle: const CalendarStyle(todayDecoration: BoxDecoration(color: Colors.transparent), selectedDecoration: BoxDecoration(color: Colors.transparent)),
                 calendarBuilders: CalendarBuilders(
                   defaultBuilder: (context, day, focusedDay) => _buildMoodDay(day),
                   todayBuilder: (context, day, focusedDay) => _buildMoodDay(day, isToday: true),
                   selectedBuilder: (context, day, focusedDay) => _buildMoodDay(day, isSelected: true),
-                  markerBuilder: (context, day, events) {
-                    if (events.isNotEmpty) { 
-                      return Positioned(bottom: 8, child: Container(width: 5, height: 5, decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle))); 
-                    }
-                    return null;
-                  },
+                  markerBuilder: (context, day, events) => (events.isNotEmpty) ? Positioned(bottom: 8, child: Container(width: 5, height: 5, decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle))) : null,
                 ),
                 onDaySelected: (selectedDay, focusedDay) {
                   setState(() { _selectedDay = selectedDay; _focusedDay = focusedDay; _selectedEvents = _getEventsForDay(selectedDay); });

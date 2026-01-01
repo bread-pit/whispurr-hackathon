@@ -31,10 +31,10 @@ class _MoodPageState extends State<MoodPage> {
 
   Color getMoodColor(String id, BuildContext context) {
     switch (id) {
-      case 'happy': return context.mood.happy ?? const Color(0xFFA8C69F);
-      case 'okay': return context.mood.okay ?? const Color(0xFFB5C7E6);
-      case 'sad': return context.mood.sad ?? const Color(0xFFF7D486);
-      case 'awful': return context.mood.awful ?? const Color(0xFFE5A5A5);
+      case 'happy': return const Color(0xFFA8C69F);
+      case 'okay': return const Color(0xFFF7D486);
+      case 'sad': return const Color(0xFFB5C7E6); 
+      case 'awful': return const Color(0xFFE5A5A5);
       default: return Colors.white;
     }
   }
