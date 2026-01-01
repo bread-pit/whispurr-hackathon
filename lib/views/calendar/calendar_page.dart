@@ -101,7 +101,9 @@ class _CalendarPageState extends State<CalendarPage> {
     } catch (e) {}
   }
 
-  List<CalendarTask> _getEventsForDay(DateTime day) => _events[_normalizeDate(day)] ?? [];
+  List<CalendarTask> _getEventsForDay(DateTime day) {
+    return _events[_normalizeDate(day)] ?? [];
+  }
 
   Future<void> _handleTaskToggle(CalendarTask task) async {
     setState(() => task.isCompleted = !task.isCompleted);
@@ -120,17 +122,22 @@ class _CalendarPageState extends State<CalendarPage> {
           child: Column(
             children: [
               const SizedBox(height: 20),
-              TableCalendar(
+              TableCalendar<CalendarTask>(
                 firstDay: DateTime.utc(2020, 1, 1), lastDay: DateTime.utc(2030, 12, 31), focusedDay: _focusedDay, calendarFormat: _calendarFormat,
-                selectedDayPredicate: (day) => isSameDay(_selectedDay, day), eventLoader: _getEventsForDay,
+                selectedDayPredicate: (day) => isSameDay(_selectedDay, day), 
+                eventLoader: _getEventsForDay,
                 headerStyle: const HeaderStyle(formatButtonVisible: false, titleCentered: true, titleTextStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 calendarStyle: const CalendarStyle(todayDecoration: BoxDecoration(color: Colors.transparent), selectedDecoration: BoxDecoration(color: Colors.transparent)),
                 calendarBuilders: CalendarBuilders(
                   defaultBuilder: (context, day, focusedDay) => _buildMoodDay(day),
                   todayBuilder: (context, day, focusedDay) => _buildMoodDay(day, isToday: true),
                   selectedBuilder: (context, day, focusedDay) => _buildMoodDay(day, isSelected: true),
-                  // FIX RED SCREEN: Check if events is not null
-                  markerBuilder: (context, day, events) => (events != null && events.isNotEmpty) ? Positioned(bottom: 8, child: Container(width: 5, height: 5, decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle))) : null,
+                  markerBuilder: (context, day, events) {
+                    if (events.isNotEmpty) { 
+                      return Positioned(bottom: 8, child: Container(width: 5, height: 5, decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle))); 
+                    }
+                    return null;
+                  },
                 ),
                 onDaySelected: (selectedDay, focusedDay) {
                   setState(() { _selectedDay = selectedDay; _focusedDay = focusedDay; _selectedEvents = _getEventsForDay(selectedDay); });

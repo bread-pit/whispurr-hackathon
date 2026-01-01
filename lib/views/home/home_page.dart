@@ -45,17 +45,24 @@ class _HomePageState extends State<HomePage> {
     if (user != null) {
       _fetchData();
       
-      _subscription = SupabaseService.client.channel('public:db_changes')
+      // Listen for database changes
+      _subscription = SupabaseService.client.channel('public:home_updates')
           .onPostgresChanges(
             event: PostgresChangeEvent.all,
             schema: 'public',
-            callback: (payload) {
-              debugPrint("Database changed! Refreshing Home...");
-              _fetchData();
+            callback: (payload) async {
+              await Future.delayed(const Duration(milliseconds: 500));
+              if (mounted) _fetchData();
             },
           )
           .subscribe();
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _fetchData();
   }
 
   @override
@@ -83,15 +90,13 @@ class _HomePageState extends State<HomePage> {
     ]);
   }
 
-  // --- FETCH MOODS & SLEEP ---
   Future<void> _fetchLogs(String userId) async {
     try {
-      // Fetch ALL logs ordered by newest first
       final response = await SupabaseService.client
           .from('logs')
           .select('created_at, mood, content')
           .eq('user_id', userId)
-          .order('created_at', ascending: false); 
+          .order('created_at', ascending: false);
 
       final Map<DateTime, Color> tempMoodMap = {};
       String? foundMoodToday;
@@ -104,15 +109,13 @@ class _HomePageState extends State<HomePage> {
         final content = log['content'] as String?;
         final normalizedDate = _normalizeDate(date);
         
-        // 1. Process Sleep Logs
         if (moodKey == 'sleep_log') {
           if (normalizedDate == today && foundSleepToday == null) {
              foundSleepToday = double.tryParse(content ?? '0') ?? 0.0;
           }
-          continue;
+          continue; 
         }
 
-        // 2. Process Mood Colors
         Color c = Colors.transparent;
         if (moodKey == 'happy') c = const Color(0xFFA8C69F);
         else if (moodKey == 'okay') c = const Color(0xFFB5C7E6);
@@ -122,6 +125,7 @@ class _HomePageState extends State<HomePage> {
         if (!tempMoodMap.containsKey(normalizedDate)) {
            tempMoodMap[normalizedDate] = c;
         }
+
         if (normalizedDate == today && foundMoodToday == null) {
            foundMoodToday = moodKey;
         }
@@ -135,9 +139,7 @@ class _HomePageState extends State<HomePage> {
           _todaysSleep = foundSleepToday ?? 0.0;
         });
       }
-    } catch (e) {
-      debugPrint("Error fetching logs: $e");
-    }
+    } catch (e) {}
   }
 
   Future<void> _fetchRecentNote(String userId) async {
@@ -173,9 +175,7 @@ class _HomePageState extends State<HomePage> {
             for (var day = _normalizeDate(startDate); !day.isAfter(_normalizeDate(endDate)); day = day.add(const Duration(days: 1))) {
               if (_allTasks[day] == null) _allTasks[day] = [];
               if (!_allTasks[day]!.any((t) => t.id == task.id)) _allTasks[day]!.add(task);
-              if (day == todayKey) {
-                todayTotal++;
-              }
+              if (day == todayKey) todayTotal++;
             }
           }
         }
@@ -230,7 +230,7 @@ class _HomePageState extends State<HomePage> {
                       defaultBuilder: (context, day, focusedDay) => _buildMoodDay(day),
                       todayBuilder: (context, day, focusedDay) => _buildMoodDay(day, isToday: true),
                       selectedBuilder: (context, day, focusedDay) => _buildMoodDay(day, isSelected: true),
-                      markerBuilder: (context, day, events) => (events != null && events.isNotEmpty) ? Positioned(bottom: 8, child: Container(width: 5, height: 5, decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle))) : null,
+                      markerBuilder: (context, day, events) => (events.isNotEmpty) ? Positioned(bottom: 8, child: Container(width: 5, height: 5, decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle))) : null,
                     ),
                   ),
                   const SizedBox(height: 20),

@@ -4,7 +4,7 @@ import '../../theme.dart';
 class SummaryCard extends StatelessWidget {
   final int taskCount;
   final double sleepHours;
-  final String? currentMood;
+  final String? currentMood; 
 
   const SummaryCard({
     super.key,
@@ -15,12 +15,8 @@ class SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String imagePath;
-    String message;
-    
-    // Default/Fallback
-    imagePath = 'assets/images/happy.png';
-    message = "Whispurr smiles with\nyou today.";
+    String imagePath = 'assets/images/happy.png';
+    String message = "Whispurr smiles with\nyou today.";
 
     if (currentMood == 'happy') {
       imagePath = 'assets/images/happy.png';
@@ -38,33 +34,26 @@ class SummaryCard extends StatelessWidget {
 
     return Row(
       children: [
+        // BIG MOOD CARD
         Expanded(
           flex: 3,
           child: Container(
             height: 180,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xff9FBfa2).withOpacity(0.8), // Green tint background
+              color: const Color(0xff9FBfa2).withOpacity(0.8),
               borderRadius: BorderRadius.circular(32),
               border: Border.all(color: Colors.white.withOpacity(0.3)),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.asset(
-                  imagePath,
-                  height: 80,
-                  fit: BoxFit.contain,
-                ),
+                Image.asset(imagePath, height: 80, fit: BoxFit.contain),
                 const SizedBox(height: 12),
                 Text(
                   message,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -80,7 +69,7 @@ class SummaryCard extends StatelessWidget {
               // SLEEP CARD
               Container(
                 height: 82,
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                 decoration: BoxDecoration(
                   color: const Color(0xffD6E6CE),
                   borderRadius: BorderRadius.circular(24),
@@ -88,16 +77,11 @@ class SummaryCard extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.nights_stay, size: 16),
-                      ],
-                    ),
-                    Text(
-                      sleepHours.toStringAsFixed(1),
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+                    const Row(children: [Icon(Icons.nights_stay, size: 16)]),
+                    FittedBox(
+                      child: Text(
+                        sleepHours.toStringAsFixed(1),
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                       ),
                     ),
                     const Text("hrs of sleep", style: TextStyle(fontSize: 10)),
@@ -109,7 +93,7 @@ class SummaryCard extends StatelessWidget {
               // TASKS CARD
               Container(
                 height: 82,
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                 decoration: BoxDecoration(
                   color: const Color(0xffD6E6CE),
                   borderRadius: BorderRadius.circular(24),
@@ -117,16 +101,11 @@ class SummaryCard extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.check_circle_outline, size: 16),
-                      ],
-                    ),
-                    Text(
-                      taskCount.toString(),
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+                    const Row(children: [Icon(Icons.check_circle_outline, size: 16)]),
+                    FittedBox(
+                      child: Text(
+                        taskCount.toString(),
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                       ),
                     ),
                     const Text("tasks", style: TextStyle(fontSize: 10)),
