@@ -101,7 +101,7 @@ class SummaryCard extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Row(children: [Icon(Icons.check_circle_outline, size: 16)]),
+                    const Row(children: [Icon(Icons.check_circle, size: 16)]),
                     FittedBox(
                       child: Text(
                         taskCount.toString(),
