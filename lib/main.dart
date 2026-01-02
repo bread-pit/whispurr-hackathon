@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; 
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:whispurr_hackathon/core/widgets/animated_gradient_screen.dart';
 import 'package:whispurr_hackathon/views/login_signup/signup_page.dart';
 import 'package:whispurr_hackathon/views/navigation/navigation_route.dart';
 import 'theme.dart';
@@ -29,7 +30,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Whispurr',
       theme: createAppTheme(),
-      home: initialScreen, 
+      home: initialScreen,
     );
   }
 }

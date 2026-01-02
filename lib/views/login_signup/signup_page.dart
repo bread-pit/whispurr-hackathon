@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart'; 
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:whispurr_hackathon/core/widgets/animated_gradient_screen.dart';
 import 'package:whispurr_hackathon/theme.dart';
 import 'package:whispurr_hackathon/views/login_signup/textField_card.dart';
 import 'package:whispurr_hackathon/views/navigation/navigation_route.dart';
@@ -113,10 +114,7 @@ class _SignupPageState extends State<SignupPage> {
         body: Stack(
         children: [
             Positioned.fill(
-              child: Image.asset(
-                  'assets/images/gradient_bg.png',
-                  fit: BoxFit.cover,
-              ),
+              child: VividAnimatedBackground()
             ),
             Center(
             child: Container(
